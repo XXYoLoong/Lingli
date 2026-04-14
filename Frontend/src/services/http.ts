@@ -28,6 +28,7 @@ client.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status, data } = error.response
+      const errorMsg = data?.detail || data?.message || '请求失败'
       switch (status) {
         case 401:
           ElMessage.error('登录已过期，请重新登录')
@@ -44,7 +45,7 @@ client.interceptors.response.use(
           ElMessage.error('服务器内部错误')
           break
         default:
-          ElMessage.error(data?.message || '请求失败')
+          ElMessage.error(errorMsg)
       }
     } else {
       ElMessage.error('网络连接异常')

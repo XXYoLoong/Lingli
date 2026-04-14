@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { UserAccount } from '@/types'
+import type { RegisterRequest, UserAccount } from '@/types'
 import { authApi } from '@/services/api'
 
 export const useUserStore = defineStore('user', () => {
@@ -15,6 +15,10 @@ export const useUserStore = defineStore('user', () => {
     token.value = res.access_token
     localStorage.setItem('token', res.access_token)
     await fetchMe()
+  }
+
+  async function register(data: RegisterRequest) {
+    await authApi.register(data)
   }
 
   async function fetchMe() {
@@ -31,5 +35,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('token')
   }
 
-  return { user, token, login, fetchMe, logout }
+  return { user, token, login, register, fetchMe, logout }
 })

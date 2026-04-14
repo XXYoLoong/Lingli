@@ -37,6 +37,14 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  username: string
+  phone: string
+  password: string
+  real_name?: string
+  role?: 'resident'
+}
+
 export interface TokenResponse {
   access_token: string
   token_type: string

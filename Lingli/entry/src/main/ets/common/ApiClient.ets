@@ -5,8 +5,8 @@
 
 import { http } from '@kit.NetworkKit';
 
-// 后端地址 - 开发环境改为你的电脑IP
-const BASE_URL = 'http://192.168.56.1:8000/api/v1';
+// 后端地址 - 云端环境
+const BASE_URL = 'http://harmonycare.cn/api/v1';
 
 export interface ApiResponse<T> {
   code: number;
@@ -24,6 +24,14 @@ export interface LoginResponse {
 export interface LoginRequest {
   phone: string;
   password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  phone: string;
+  password: string;
+  role: string;
+  real_name: string;
 }
 
 export interface UserInfo {
@@ -192,6 +200,16 @@ export async function loginApi(data: LoginRequest): Promise<LoginResponse> {
     return result;
   }
   throw new Error(resp.message || '登录失败');
+}
+
+export async function registerApi(data: RegisterRequest): Promise<UserInfo> {
+  const client = ApiClient.getInstance();
+  const safeName = data.real_name.replace(/"/g, '');
+  const body =
+    `{"username":"${data.username}","phone":"${data.phone}","password":"${data.password}",` +
+    `"role":"${data.role}","real_name":"${safeName}"}`;
+  const resp = await client.post<UserInfo>('/auth/register', body);
+  return resp.data;
 }
 
 export async function getUserInfo(): Promise<UserInfo> {

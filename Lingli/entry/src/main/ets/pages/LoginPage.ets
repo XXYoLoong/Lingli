@@ -85,6 +85,23 @@ export struct LoginPage {
           .onClick(() => {
             this.handleLogin()
           })
+
+        Row() {
+          Text('还没有账号？')
+            .fontSize(13)
+            .fontColor('#999')
+          Text('去注册')
+            .fontSize(13)
+            .fontColor('#1677ff')
+            .fontWeight(FontWeight.Medium)
+            .margin({ left: 4 })
+            .onClick(() => {
+              AppStorage.setOrCreate<string>('authMode', 'register')
+            })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+        .margin({ top: 14 })
       }
       .width('85%')
       .padding({ top: 40 })

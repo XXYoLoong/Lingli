@@ -6,6 +6,7 @@
 
 import { mediaquery } from '@kit.ArkUI';
 import { LoginPage } from './LoginPage';
+import { RegisterPage } from './RegisterPage';
 import { ResidentHomePage } from './ResidentHomePage';
 import { WorkerHomePage } from './WorkerHomePage';
 import { ServiceRequestPage } from './ServiceRequestPage';
@@ -18,7 +19,8 @@ struct Index {
   @State currentIndex: number = 0
   @State currentRole: string = 'resident'
   @State isSideNav: boolean = false
-  @State isLoggedIn: boolean = false
+  @StorageLink('isLoggedIn') isLoggedIn: boolean = false
+  @StorageLink('authMode') authMode: string = 'login'
   @State userName: string = ''
 
   aboutToAppear(): void {
@@ -27,6 +29,7 @@ struct Index {
     listener.on('change', (result: mediaquery.MediaQueryResult) => {
       this.isSideNav = result.matches
     })
+    AppStorage.setOrCreate<string>('authMode', 'login')
     const token: string | undefined = AppStorage.get<string>('token')
     this.isLoggedIn = token !== undefined && token.length > 0
     if (this.isLoggedIn) {
@@ -47,7 +50,11 @@ struct Index {
 
   build() {
     if (!this.isLoggedIn) {
-      LoginPage()
+      if (this.authMode === 'register') {
+        RegisterPage()
+      } else {
+        LoginPage()
+      }
     } else {
       Tabs({
         barPosition: this.isSideNav ? BarPosition.Start : BarPosition.End,
@@ -203,6 +210,7 @@ struct Index {
         .margin({ top: 24 })
         .onClick(() => {
           this.isLoggedIn = false
+          this.authMode = 'login'
           ApiClient.getInstance().clearToken()
           AppStorage.setOrCreate<string>('token', '')
         })

@@ -3,6 +3,7 @@
  */
 import type {
   LoginRequest,
+  RegisterRequest,
   TokenResponse,
   UserAccount,
   ServiceOrder,
@@ -20,6 +21,7 @@ import { get, post, patch, del } from './http'
 // 认证相关
 export const authApi = {
   login: (data: LoginRequest) => post<TokenResponse>('/auth/login', data),
+  register: (data: RegisterRequest) => post<UserAccount>('/auth/register', data),
   getMe: () => get<UserAccount>('/auth/me'),
 }
 
