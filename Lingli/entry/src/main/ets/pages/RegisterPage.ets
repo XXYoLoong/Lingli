@@ -160,7 +160,7 @@ export struct RegisterPage {
       })
       .catch((err: Error) => {
         this.isLoading = false
-        if (err.message.indexOf('400') >= 0) {
+        if (err.message.indexOf('手机号已被注册') >= 0 || err.message.indexOf('400') >= 0) {
           this.errorMsg = '该手机号已注册，请直接登录'
         } else {
           this.errorMsg = err.message || '注册失败，请稍后重试'

@@ -176,15 +176,64 @@ export class ApiClient {
       });
 
       if (response.responseCode === 200 || response.responseCode === 201) {
-        return response.result as ApiResponse<T>;
+        return this.normalizeResponse<T>(response.result as string | ESObject);
       }
       if (response.responseCode === 401) {
         this.clearToken();
       }
+      const serverMsg = this.extractServerMessage(response.result as string | ESObject);
+      if (serverMsg.length > 0) {
+        throw new Error(serverMsg);
+      }
       throw new Error(`HTTP ${response.responseCode}`);
+    } catch (err) {
+      const e = err as Error;
+      if (e && e.message && e.message.length > 0) {
+        throw e;
+      }
+      throw new Error('服务器无响应，请检查网络连接');
     } finally {
       httpRequest.destroy();
     }
+  }
+
+  private normalizeResponse<T>(rawResult: string | ESObject): ApiResponse<T> {
+    let payload: ESObject = rawResult as ESObject;
+    if (typeof rawResult === 'string') {
+      if (rawResult.length === 0) {
+        return { code: 200, message: 'ok', data: {} as T, requestId: '' };
+      }
+      payload = JSON.parse(rawResult) as ESObject;
+    }
+
+    const wrapped = payload as ApiResponse<T>;
+    if (wrapped && wrapped.data !== undefined) {
+      return wrapped;
+    }
+    return {
+      code: 200,
+      message: 'ok',
+      data: payload as T,
+      requestId: ''
+    };
+  }
+
+  private extractServerMessage(rawResult: string | ESObject): string {
+    let payload: ESObject = rawResult as ESObject;
+    if (typeof rawResult === 'string') {
+      if (rawResult.length === 0) {
+        return '';
+      }
+      payload = JSON.parse(rawResult) as ESObject;
+    }
+    const msgObj = payload as Record<string, string>;
+    if (msgObj['detail']) {
+      return msgObj['detail'];
+    }
+    if (msgObj['message']) {
+      return msgObj['message'];
+    }
+    return '';
   }
 }
 
