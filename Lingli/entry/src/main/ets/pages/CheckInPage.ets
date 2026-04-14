@@ -1,3 +1,9 @@
+/**
+ * 服务人员签到页面 - 调用后端签到接口
+ */
+
+import { checkInOrder } from '../common/ApiClient';
+
 @Component
 export struct CheckInPage {
   @State orderId: string = ''
@@ -6,6 +12,7 @@ export struct CheckInPage {
   @State hasLocation: boolean = false
   @State isCheckingIn: boolean = false
   @State photoTaken: boolean = false
+  @State statusMsg: string = ''
 
   build() {
     Column() {
@@ -16,7 +23,7 @@ export struct CheckInPage {
         .margin({ top: 20, bottom: 24 })
 
       Column() {
-        Text('NL202604140001')
+        Text(this.orderId || 'NL202604140001')
           .fontSize(14)
           .fontColor('#999')
           .margin({ bottom: 4 })
@@ -70,7 +77,7 @@ export struct CheckInPage {
         .padding({ left: 12 })
         .onClick(() => {
           this.hasLocation = true
-          this.locationInfo = '已定位成功'
+          this.locationInfo = '已定位成功 (模拟)'
         })
       }
       .width('100%')
@@ -138,6 +145,15 @@ export struct CheckInPage {
       .width('100%')
       .padding({ bottom: 40 })
 
+      if (this.statusMsg.length > 0) {
+        Text(this.statusMsg)
+          .fontSize(14)
+          .fontColor(this.statusMsg.includes('成功') ? '#52c41a' : '#ff4d4f')
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: 16 })
+      }
+
       Blank()
 
       Button(this.isCheckingIn ? '签到中...' : '确认签到')
@@ -150,8 +166,7 @@ export struct CheckInPage {
         .enabled(this.canCheckIn() && !this.isCheckingIn)
         .margin({ bottom: 30 })
         .onClick(() => {
-          this.isCheckingIn = true
-          this.isCheckingIn = false
+          this.doCheckIn()
         })
     }
     .width('100%')
@@ -162,5 +177,22 @@ export struct CheckInPage {
 
   private canCheckIn(): boolean {
     return this.hasLocation && this.checkInCode.length > 0
+  }
+
+  private doCheckIn(): void {
+    this.isCheckingIn = true
+    this.statusMsg = ''
+
+    const body = `{"check_in_code":"${this.checkInCode}"}`
+
+    checkInOrder(this.orderId || 'placeholder-id', body)
+      .then(() => {
+        this.isCheckingIn = false
+        this.statusMsg = '签到成功！'
+      })
+      .catch((err: Error) => {
+        this.isCheckingIn = false
+        this.statusMsg = '签到失败: ' + err.message
+      })
   }
 }

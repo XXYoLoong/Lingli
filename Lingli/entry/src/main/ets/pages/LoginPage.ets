@@ -1,4 +1,8 @@
-import { router } from "@kit.ArkUI"
+/**
+ * 登录页面 - 连接后端真实登录接口
+ */
+
+import { loginApi, type LoginRequest } from '../common/ApiClient';
 
 @Component
 export struct LoginPage {
@@ -101,12 +105,23 @@ export struct LoginPage {
       this.errorMsg = '密码长度不足'
       return
     }
+
     this.isLoading = true
     this.errorMsg = ''
-    AppStorage.setOrCreate<string>('token', 'mock-token')
-    this.isLoading = false
-    router.pushUrl({
-      url: 'pages/Index'
-    })
+
+    const req: LoginRequest = {
+      phone: this.phone,
+      password: this.password
+    }
+
+    loginApi(req)
+      .then(() => {
+        this.isLoading = false
+        AppStorage.setOrCreate<boolean>('isLoggedIn', true)
+      })
+      .catch((err: Error) => {
+        this.isLoading = false
+        this.errorMsg = err.message || '登录失败，请检查网络'
+      })
   }
 }

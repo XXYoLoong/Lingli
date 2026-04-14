@@ -1,3 +1,9 @@
+/**
+ * 服务结果提交页面 - 调用后端完成工单接口
+ */
+
+import { completeOrder } from '../common/ApiClient';
+
 @Component
 export struct ServiceResultPage {
   @State result: string = ''
@@ -5,6 +11,8 @@ export struct ServiceResultPage {
   @State abnormalReason: string = ''
   @State isSubmitting: boolean = false
   @State photoCount: number = 0
+  @State statusMsg: string = ''
+  @State selectedTags: string[] = []
   private abnormalTags: string[] = [
     '客户不在家', '设备损坏', '无法进入', '客户取消',
     '缺少配件', '需要二次上门', '安全隐患'
@@ -90,20 +98,67 @@ export struct ServiceResultPage {
       .width('100%')
       .padding({ bottom: 24 })
 
-      if (this.hasAbnormal) {
-        Column() {
-          Text('异常标签')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#333')
+      Column() {
+        Text('异常上报')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#333')
+          .width('100%')
+          .margin({ bottom: 12 })
+
+        Toggle({ type: ToggleType.Switch, isOn: this.hasAbnormal })
+          .width(50)
+          .height(28)
+          .onChange((isOn: boolean) => {
+            this.hasAbnormal = isOn
+          })
+
+        if (this.hasAbnormal) {
+          Column() {
+            Text('选择异常标签')
+              .fontSize(14)
+              .fontColor('#666')
+              .width('100%')
+              .margin({ bottom: 8, top: 12 })
+
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(this.abnormalTags, (tag: string) => {
+                Text(tag)
+                  .fontSize(13)
+                  .fontColor(this.isTagSelected(tag) ? '#fff' : '#666')
+                  .backgroundColor(this.isTagSelected(tag) ? '#ff4d4f' : '#f0f0f0')
+                  .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                  .borderRadius(16)
+                  .margin({ right: 8, bottom: 8 })
+                  .onClick(() => {
+                    this.toggleTag(tag)
+                  })
+              }, (tag: string) => tag)
+            }
             .width('100%')
-            .margin({ bottom: 12 })
-          Text('异常上报功能已启用')
-            .fontSize(14)
-            .fontColor('#ff4d4f')
+
+            TextArea({ text: this.abnormalReason, placeholder: '补充说明异常情况' })
+              .backgroundColor('#fff5f5')
+              .borderRadius(8)
+              .height(80)
+              .margin({ top: 12 })
+              .onChange((value: string) => {
+                this.abnormalReason = value
+              })
+          }
+          .width('100%')
         }
-        .width('100%')
-        .padding({ bottom: 20 })
+      }
+      .width('100%')
+      .padding({ bottom: 20 })
+
+      if (this.statusMsg.length > 0) {
+        Text(this.statusMsg)
+          .fontSize(14)
+          .fontColor(this.statusMsg.includes('成功') ? '#52c41a' : '#ff4d4f')
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: 16 })
       }
 
       Blank()
@@ -118,8 +173,7 @@ export struct ServiceResultPage {
         .enabled(this.result.length > 0 && !this.isSubmitting)
         .margin({ bottom: 30 })
         .onClick(() => {
-          this.isSubmitting = true
-          this.isSubmitting = false
+          this.submitResult()
         })
     }
     .width('100%')
@@ -136,5 +190,54 @@ export struct ServiceResultPage {
       i++
     }
     return list
+  }
+
+  private isTagSelected(tag: string): boolean {
+    return this.selectedTags.indexOf(tag) >= 0
+  }
+
+  private toggleTag(tag: string): void {
+    const idx = this.selectedTags.indexOf(tag)
+    if (idx >= 0) {
+      const newList: string[] = []
+      let j = 0
+      while (j < this.selectedTags.length) {
+        if (j !== idx) {
+          newList.push(this.selectedTags[j])
+        }
+        j++
+      }
+      this.selectedTags = newList
+    } else {
+      const newList: string[] = []
+      let k = 0
+      while (k < this.selectedTags.length) {
+        newList.push(this.selectedTags[k])
+        k++
+      }
+      newList.push(tag)
+      this.selectedTags = newList
+    }
+  }
+
+  private submitResult(): void {
+    this.isSubmitting = true
+    this.statusMsg = ''
+
+    let body = `{"service_result":"${this.result}","abnormal_flag":${this.hasAbnormal}`
+    if (this.hasAbnormal && this.abnormalReason.length > 0) {
+      body += `,"abnormal_reason":"${this.abnormalReason}"`
+    }
+    body += '}'
+
+    completeOrder('placeholder-id', body)
+      .then(() => {
+        this.isSubmitting = false
+        this.statusMsg = '工单完成提交成功！'
+      })
+      .catch((err: Error) => {
+        this.isSubmitting = false
+        this.statusMsg = '提交失败: ' + err.message
+      })
   }
 }

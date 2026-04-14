@@ -1,3 +1,9 @@
+/**
+ * 服务申请页面 - 提交工单到后端
+ */
+
+import { createOrder } from '../common/ApiClient';
+
 @Component
 export struct ServiceRequestPage {
   @State title: string = ''
@@ -7,6 +13,7 @@ export struct ServiceRequestPage {
   @State address: string = ''
   @State selectedType: string = ''
   @State isSubmitting: boolean = false
+  @State submitResult: string = ''
   private serviceTypes: string[] = ['维修', '保洁', '助餐', '陪诊', '代办', '照护']
 
   build() {
@@ -119,6 +126,15 @@ export struct ServiceRequestPage {
         .width('100%')
         .padding({ left: 20, right: 20, bottom: 40 })
 
+        if (this.submitResult.length > 0) {
+          Text(this.submitResult)
+            .fontSize(14)
+            .fontColor('#52c41a')
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .margin({ bottom: 16 })
+        }
+
         Row() {
           Button('保存草稿')
             .layoutWeight(1)
@@ -138,6 +154,9 @@ export struct ServiceRequestPage {
             .backgroundColor('#1677ff')
             .borderRadius(8)
             .enabled(!this.isSubmitting)
+            .onClick(() => {
+              this.submitOrder()
+            })
         }
         .width('100%')
         .padding({ left: 20, right: 20, bottom: 30 })
@@ -147,5 +166,50 @@ export struct ServiceRequestPage {
     .width('100%')
     .height('100%')
     .backgroundColor('#f5f7fa')
+  }
+
+  private submitOrder(): void {
+    if (this.selectedType.length === 0) {
+      this.submitResult = '请选择服务类型'
+      return
+    }
+    if (this.title.length === 0) {
+      this.submitResult = '请输入工单标题'
+      return
+    }
+
+    this.isSubmitting = true
+    this.submitResult = ''
+
+    let body = `{"service_type":"${this.selectedType}","title":"${this.title}"`
+    if (this.contactName.length > 0) {
+      body += `,"contact_name":"${this.contactName}"`
+    }
+    if (this.contactPhone.length > 0) {
+      body += `,"contact_phone":"${this.contactPhone}"`
+    }
+    if (this.address.length > 0) {
+      body += `,"service_address":"${this.address}"`
+    }
+    if (this.description.length > 0) {
+      body += `,"description":"${this.description}"`
+    }
+    body += '}'
+
+    createOrder(body)
+      .then(() => {
+        this.isSubmitting = false
+        this.submitResult = '工单提交成功！'
+        this.title = ''
+        this.description = ''
+        this.contactName = ''
+        this.contactPhone = ''
+        this.address = ''
+        this.selectedType = ''
+      })
+      .catch((err: Error) => {
+        this.isSubmitting = false
+        this.submitResult = '提交失败: ' + err.message
+      })
   }
 }
