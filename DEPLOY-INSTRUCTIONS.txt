@@ -1,0 +1,34 @@
+# ============================================================
+# 邻里 - 云端部署说明
+# 在本地 PowerShell 中逐条执行以下命令
+# ============================================================
+
+# 第1步：上传压缩包（已在本地打包好）
+scp "f:\YL-Workspace\D-A\neighbor-deploy.zip" root@8.153.38.232:/tmp/
+
+# 第2步：SSH 登录并部署
+ssh root@8.153.38.232
+
+# ===== 以下命令在服务器上执行 =====
+
+# 解压
+cd /tmp
+unzip -o neighbor-deploy.zip -d /tmp/neighbor-deploy
+
+# 运行部署脚本
+bash /tmp/neighbor-deploy/deploy.sh
+
+# 部署完成后访问：
+# 网站: http://harmonycare.cn
+# API:  http://harmonycare.cn/api/v1
+# 文档: http://harmonycare.cn/docs
+
+# 测试账号:
+#   管理员: 13800000000 / admin123456
+#   站长:   13800000001 / manager123
+#   服务人员: 13800000002 / worker123
+#   居民:   13800000003 / resident123
+
+# ===== 可选：配置 SSL (Let's Encrypt) =====
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d harmonycare.cn
