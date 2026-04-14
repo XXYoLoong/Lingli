@@ -1,0 +1,13 @@
+# Deployment artifacts
+deploy-pkg/
+neighbor-deploy.zip
+neighbor-deploy-auto.zip
+
+# Temp extracted docs
+temp_backend_doc.txt
+temp_harmony_doc.txt
+temp_web_doc.txt
+
+# Python cache
+**/__pycache__/
+**/*.pyc
