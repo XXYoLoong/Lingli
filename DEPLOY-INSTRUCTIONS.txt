@@ -24,10 +24,8 @@ bash /tmp/neighbor-deploy/deploy.sh
 # 文档: http://harmonycare.cn/docs
 
 # 测试账号:
-#   管理员: 13800000000 / admin123456
-#   站长:   13800000001 / manager123
-#   服务人员: 13800000002 / worker123
-#   居民:   13800000003 / resident123
+#   脚本会从 NEIGHBOR_DEMO_*_PASSWORD 环境变量读取密码，未设置时随机生成。
+#   请不要把真实账号密码写入仓库或部署说明。
 
 # ===== 可选：配置 SSL (Let's Encrypt) =====
 apt install -y certbot python3-certbot-nginx

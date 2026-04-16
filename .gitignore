@@ -14,3 +14,17 @@ temp_web_doc.txt
 
 # Local browser automation cache
 .playwright-cli/
+
+# Local signing and secret files
+*.p12
+*.p7b
+*.cer
+*.pem
+*.key
+*.keystore
+*.jks
+.env
+*.env
+*.db
+*.sqlite
+*.sqlite3

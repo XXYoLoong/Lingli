@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import secrets
 import stat
 import textwrap
 import zipfile
@@ -23,12 +24,12 @@ import paramiko
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST_ZIP = ROOT / "neighbor-deploy-auto.zip"
-HOST = "8.153.38.232"
-USER = "root"
-PASSWORD = "5211005_jc"
-KEY_PATH = Path.home() / ".ssh" / "id_rsa"
-KEY_PASSPHRASE = "5211005jc"
-DOMAIN = "harmonycare.cn"
+HOST = os.getenv("NEIGHBOR_DEPLOY_HOST", "")
+USER = os.getenv("NEIGHBOR_DEPLOY_USER", "root")
+PASSWORD = os.getenv("NEIGHBOR_DEPLOY_PASSWORD") or None
+KEY_PATH = Path(os.getenv("NEIGHBOR_SSH_KEY_PATH", str(Path.home() / ".ssh" / "id_rsa")))
+KEY_PASSPHRASE = os.getenv("NEIGHBOR_SSH_KEY_PASSPHRASE") or None
+DOMAIN = os.getenv("NEIGHBOR_DEPLOY_DOMAIN", "harmonycare.cn")
 
 
 def should_skip(path: Path) -> bool:
@@ -153,7 +154,11 @@ ENVEOF
           echo 'SUPER_ADMIN_NAME=小小游龙' >> "$APP_DIR/backend/.env"
 
         cd "$APP_DIR/backend"
+        INITIAL_SUPER_ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-20)"
+        export NEIGHBOR_INITIAL_SUPER_ADMIN_PASSWORD="$INITIAL_SUPER_ADMIN_PASSWORD"
         "$APP_DIR/backend/venv/bin/python" - << 'PYEOF'
+import os
+
 from app.database import Base, engine, SessionLocal
 from app.models import *
 from datetime import datetime, timedelta
@@ -179,10 +184,10 @@ try:
         db.refresh(station)
 
     users = [
-        ("admin", "13800000000", "admin123456", RoleEnum.ADMIN, "系统管理员", None),
-        ("manager", "13800000001", "manager123", RoleEnum.STATION_MANAGER, "张站长", station.id),
-        ("worker", "13800000002", "worker123", RoleEnum.WORKER, "李师傅", station.id),
-        ("resident", "13800000003", "resident123", RoleEnum.RESIDENT, "王居民", station.id),
+        ("admin", "13800000000", os.environ.get("NEIGHBOR_DEMO_ADMIN_PASSWORD") or secrets.token_urlsafe(12), RoleEnum.ADMIN, "系统管理员", None),
+        ("manager", "13800000001", os.environ.get("NEIGHBOR_DEMO_MANAGER_PASSWORD") or secrets.token_urlsafe(12), RoleEnum.STATION_MANAGER, "张站长", station.id),
+        ("worker", "13800000002", os.environ.get("NEIGHBOR_DEMO_WORKER_PASSWORD") or secrets.token_urlsafe(12), RoleEnum.WORKER, "李师傅", station.id),
+        ("resident", "13800000003", os.environ.get("NEIGHBOR_DEMO_RESIDENT_PASSWORD") or secrets.token_urlsafe(12), RoleEnum.RESIDENT, "王居民", station.id),
     ]
     for username, phone, password, role, name, station_id in users:
         exists = db.query(UserAccount).filter(UserAccount.phone == phone).first()
@@ -211,7 +216,7 @@ try:
         super_admin = UserAccount(
             username="xiaoxiaoyoulong",
             phone="13900009999",
-            password_hash=hash_password("XylAdmin@123"),
+            password_hash=hash_password(os.environ["NEIGHBOR_INITIAL_SUPER_ADMIN_PASSWORD"]),
             role=RoleEnum.ADMIN,
             real_name="小小游龙",
             station_id=station.id,
@@ -368,6 +373,9 @@ NGINXEOF
 
 
 def connect_ssh() -> paramiko.SSHClient:
+    if not HOST:
+        raise RuntimeError("请通过 NEIGHBOR_DEPLOY_HOST 环境变量设置目标服务器地址。")
+
     pkey = paramiko.RSAKey.from_private_key_file(str(KEY_PATH), password=KEY_PASSPHRASE)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

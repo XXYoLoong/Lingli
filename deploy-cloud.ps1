@@ -96,6 +96,7 @@ ENVEOF
 echo ">>> 初始化数据库..."
 cd "$APP_DIR/backend"
 "$APP_DIR/backend/venv/bin/python" -c "
+import os, secrets
 from app.database import engine, Base
 from app.models import *
 Base.metadata.create_all(bind=engine)
@@ -108,10 +109,10 @@ if not db.query(ServiceStation).first():
     s = ServiceStation(name='社区服务站', code='MAIN001', address='服务中心', contact_phone='13800000000', status='active')
     db.add(s); db.commit(); db.refresh(s)
     users = [
-        ('admin','13800000000','admin123456',RoleEnum.ADMIN,'系统管理员',None),
-        ('manager','13800000001','manager123',RoleEnum.STATION_MANAGER,'张站长',s.id),
-        ('worker','13800000002','worker123',RoleEnum.WORKER,'李师傅',s.id),
-        ('resident','13800000003','resident123',RoleEnum.RESIDENT,'王居民',s.id),
+        ('admin','13800000000',os.environ.get('NEIGHBOR_DEMO_ADMIN_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.ADMIN,'系统管理员',None),
+        ('manager','13800000001',os.environ.get('NEIGHBOR_DEMO_MANAGER_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.STATION_MANAGER,'张站长',s.id),
+        ('worker','13800000002',os.environ.get('NEIGHBOR_DEMO_WORKER_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.WORKER,'李师傅',s.id),
+        ('resident','13800000003',os.environ.get('NEIGHBOR_DEMO_RESIDENT_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.RESIDENT,'王居民',s.id),
     ]
     for u, p, pwd, r, n, sid in users:
         if not db.query(UserAccount).filter(UserAccount.phone == p).first():
@@ -121,7 +122,7 @@ if not db.query(ServiceStation).first():
                 db.flush()
                 db.add(WorkerProfile(user_id=usr.id, max_load=10, status='available'))
     db.commit()
-    print('  测试账号: admin/13800000000 / admin123456')
+    print('  测试账号密码已由环境变量或随机值生成，请在部署日志中妥善保存。')
 db.close()
 print('  数据库初始化完成')
 " 2>&1
@@ -192,10 +193,11 @@ echo "  API:  http://$Domain/api/v1"
 echo "  文档: http://$Domain/docs"
 echo ""
 echo "  测试账号:"
-echo "    管理员: 13800000000 / admin123456"
-echo "    站长:   13800000001 / manager123"
-echo "    服务:   13800000002 / worker123"
-echo "    居民:   13800000003 / resident123"
+echo "    管理员手机号: 13800000000"
+echo "    站长手机号:   13800000001"
+echo "    服务人员手机号: 13800000002"
+echo "    居民手机号:   13800000003"
+echo "    密码: 读取 NEIGHBOR_DEMO_*_PASSWORD，未设置时部署脚本随机生成"
 echo ""
 '@
 

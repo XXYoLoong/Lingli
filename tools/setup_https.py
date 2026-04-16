@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from pathlib import Path
 
 import paramiko
 
 
-HOST = "8.153.38.232"
-USER = "root"
-PASSWORD = "5211005_jc"
-KEY_PASSPHRASE = "5211005jc"
-KEY_PATH = Path.home() / ".ssh" / "id_rsa"
-DOMAIN = "harmonycare.cn"
-EMAIL = "admin@harmonycare.cn"
+HOST = os.getenv("NEIGHBOR_DEPLOY_HOST", "")
+USER = os.getenv("NEIGHBOR_DEPLOY_USER", "root")
+PASSWORD = os.getenv("NEIGHBOR_DEPLOY_PASSWORD") or None
+KEY_PASSPHRASE = os.getenv("NEIGHBOR_SSH_KEY_PASSPHRASE") or None
+KEY_PATH = Path(os.getenv("NEIGHBOR_SSH_KEY_PATH", str(Path.home() / ".ssh" / "id_rsa")))
+DOMAIN = os.getenv("NEIGHBOR_DEPLOY_DOMAIN", "harmonycare.cn")
+EMAIL = os.getenv("NEIGHBOR_DEPLOY_EMAIL", "admin@harmonycare.cn")
 
 
 def run(client: paramiko.SSHClient, cmd: str, timeout: int = 900) -> None:
@@ -39,6 +40,9 @@ def run(client: paramiko.SSHClient, cmd: str, timeout: int = 900) -> None:
 
 
 def main() -> None:
+    if not HOST:
+        raise RuntimeError("请通过 NEIGHBOR_DEPLOY_HOST 环境变量设置目标服务器地址。")
+
     key = paramiko.RSAKey.from_private_key_file(str(KEY_PATH), password=KEY_PASSPHRASE)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

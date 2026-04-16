@@ -65,7 +65,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 初始化数据库
 & "$BackendDir\venv\Scripts\python.exe" -c "
-import sys, os
+import sys, os, secrets
 sys.path.insert(0, '$BackendDir')
 os.environ['DATABASE_URL'] = 'sqlite+pysqlite:///./neighbor.db'
 from app.database import engine, Base
@@ -88,10 +88,10 @@ if not db.query(ServiceStation).first():
     s = ServiceStation(name='测试社区服务站', code='TEST001', address='测试路1号', contact_phone='13800000000', status='active')
     db.add(s); db.commit(); db.refresh(s)
     users = [
-        ('admin','13800000000','admin123456',RoleEnum.ADMIN,'系统管理员',None),
-        ('manager','13800000001','manager123',RoleEnum.STATION_MANAGER,'张站长',s.id),
-        ('worker','13800000002','worker123',RoleEnum.WORKER,'李师傅',s.id),
-        ('resident','13800000003','resident123',RoleEnum.RESIDENT,'王居民',s.id),
+        ('admin','13800000000',os.environ.get('NEIGHBOR_DEMO_ADMIN_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.ADMIN,'系统管理员',None),
+        ('manager','13800000001',os.environ.get('NEIGHBOR_DEMO_MANAGER_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.STATION_MANAGER,'张站长',s.id),
+        ('worker','13800000002',os.environ.get('NEIGHBOR_DEMO_WORKER_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.WORKER,'李师傅',s.id),
+        ('resident','13800000003',os.environ.get('NEIGHBOR_DEMO_RESIDENT_PASSWORD') or secrets.token_urlsafe(12),RoleEnum.RESIDENT,'王居民',s.id),
     ]
     for u, p, pwd, r, n, sid in users:
         if not db.query(UserAccount).filter(UserAccount.phone == p).first():
@@ -102,10 +102,7 @@ if not db.query(ServiceStation).first():
                 db.add(WorkerProfile(user_id=usr.id, max_load=10, status='available'))
     db.commit()
     print('  [OK] 测试数据已创建')
-    print('    Admin: 13800000000 / admin123456')
-    print('    Manager: 13800000001 / manager123')
-    print('    Worker: 13800000002 / worker123')
-    print('    Resident: 13800000003 / resident123')
+    print('    Demo account passwords are read from NEIGHBOR_DEMO_*_PASSWORD or generated randomly.')
 else:
     print('  [OK] 测试数据已存在')
 db.close()
@@ -114,7 +111,7 @@ db.close()
 # 启动后端
 Write-Host "  后端服务: http://localhost:8000" -ForegroundColor Green
 Write-Host "  API 文档: http://localhost:8000/docs" -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendDir'; `$env:DASHSCOPE_API_KEY='sk-test'; .\venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$BackendDir'; `$env:DASHSCOPE_API_KEY=''; .\venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
 # --- 3. 前端 ---
 Write-Host "`n[3/4] 启动 Web 前端..." -ForegroundColor Yellow
@@ -143,10 +140,11 @@ Write-Host "  API 文档:   http://localhost:8000/docs" -ForegroundColor White
 Write-Host "  Web 前端:   http://localhost:5173" -ForegroundColor White
 Write-Host ""
 Write-Host "  测试账号 (手机号/密码):" -ForegroundColor Yellow
-Write-Host "    管理员:    13800000000 / admin123456" -ForegroundColor White
-Write-Host "    站长:      13800000001 / manager123" -ForegroundColor White
-Write-Host "    服务人员:  13800000002 / worker123" -ForegroundColor White
-Write-Host "    居民:      13800000003 / resident123" -ForegroundColor White
+Write-Host "    管理员手机号: 13800000000" -ForegroundColor White
+Write-Host "    密码: 读取 NEIGHBOR_DEMO_ADMIN_PASSWORD，未设置时启动脚本随机生成" -ForegroundColor White
+Write-Host "    站长手机号:    13800000001" -ForegroundColor White
+Write-Host "    服务人员手机号: 13800000002" -ForegroundColor White
+Write-Host "    居民手机号:    13800000003" -ForegroundColor White
 Write-Host ""
 Write-Host "  关闭窗口即可停止服务`n" -ForegroundColor DarkYellow
 
