@@ -14,78 +14,86 @@ export struct ResidentHomePage {
   }
 
   build() {
-    Column() {
-      Row() {
-        Text('邻里')
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#1677ff')
-        Blank()
-        Text('消息')
-          .fontSize(16)
-          .fontColor('#666')
-      }
-      .width('100%')
-      .padding({ left: 20, right: 20, top: 20, bottom: 10 })
-
+    Scroll() {
       Column() {
-        Text('您好，欢迎使用邻里服务')
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#333')
-          .margin({ top: 16, bottom: 4 })
-        Text('请选择您需要的服务类型')
-          .fontSize(14)
-          .fontColor('#999')
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-      .padding({ left: 20 })
-
-      Row() {
-        this.ServiceCardItem('\uD83D\uDD27', '维修服务')
-        this.ServiceCardItem('\uD83E\uDDF9', '保洁服务')
-        this.ServiceCardItem('\uD83C\uDF71', '助餐服务')
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.SpaceAround)
-      .padding({ top: 20 })
-
-      Row() {
-        this.ServiceCardItem('\uD83C\uDFE5', '陪诊服务')
-        this.ServiceCardItem('\uD83D\uDCCB', '代办服务')
-        this.ServiceCardItem('\uD83D\uDC9D', '照护服务')
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.SpaceAround)
-      .padding({ top: 10 })
-
-      Column() {
-        Text('我的订单')
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#333')
-          .margin({ top: 24, bottom: 12 })
-
-        if (this.isLoading) {
-          Text('加载中...')
-            .fontSize(14)
-            .fontColor('#ccc')
-        } else if (this.orders.length > 0) {
-          ForEach(this.orders, (order: OrderItem) => {
-            this.OrderCard(order)
-          }, (order: OrderItem) => order.id)
-        } else {
-          Text('暂无进行中的订单')
-            .fontSize(14)
-            .fontColor('#ccc')
+        Row() {
+          Text('邻里')
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#1677ff')
+          Blank()
+          Text('消息')
+            .fontSize(16)
+            .fontColor('#666')
+            .onClick(() => {
+              AppStorage.setOrCreate('activeTab', 2)
+            })
         }
+        .width('100%')
+        .padding({ left: 20, right: 20, top: 20, bottom: 10 })
+
+        Column() {
+          Text('您好，欢迎使用邻里服务')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#333')
+            .margin({ top: 16, bottom: 4 })
+          Text('请选择您需要的服务类型')
+            .fontSize(14)
+            .fontColor('#999')
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .padding({ left: 20 })
+
+        Row() {
+          this.ServiceCardItem('\uD83D\uDD27', '维修')
+          this.ServiceCardItem('\uD83E\uDDF9', '保洁')
+          this.ServiceCardItem('\uD83C\uDF71', '助餐')
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceAround)
+        .padding({ top: 20 })
+
+        Row() {
+          this.ServiceCardItem('\uD83C\uDFE5', '陪诊')
+          this.ServiceCardItem('\uD83D\uDCCB', '代办')
+          this.ServiceCardItem('\uD83D\uDC9D', '照护')
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceAround)
+        .padding({ top: 10 })
+
+        Column() {
+          Text('我的订单')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#333')
+            .margin({ top: 24, bottom: 12 })
+
+          if (this.isLoading) {
+            Text('加载中...')
+              .fontSize(14)
+              .fontColor('#ccc')
+          } else if (this.orders.length > 0) {
+            ForEach(this.orders, (order: OrderItem) => {
+              this.OrderCard(order)
+            }, (order: OrderItem) => order.id)
+          } else {
+            Text('暂无进行中的订单')
+              .fontSize(14)
+              .fontColor('#ccc')
+          }
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .padding({ left: 20 })
+
+        Column()
+          .width('100%')
+          .height(110)
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Start)
-      .padding({ left: 20 })
-
-      Blank()
     }
     .width('100%')
     .height('100%')
@@ -110,6 +118,10 @@ export struct ResidentHomePage {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .shadow({ radius: 4, color: '#00000008', offsetY: 2 })
+    .onClick(() => {
+      AppStorage.setOrCreate('selectedServiceType', name)
+      AppStorage.setOrCreate('activeTab', 1)
+    })
   }
 
   @Builder

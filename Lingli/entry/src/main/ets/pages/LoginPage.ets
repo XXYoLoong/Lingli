@@ -3,6 +3,7 @@
  */
 
 import { loginApi, type LoginRequest } from '../common/ApiClient';
+import { common, Want } from '@kit.AbilityKit';
 
 @Component
 export struct LoginPage {
@@ -96,7 +97,7 @@ export struct LoginPage {
             .fontWeight(FontWeight.Medium)
             .margin({ left: 4 })
             .onClick(() => {
-              AppStorage.setOrCreate<string>('authMode', 'register')
+              this.openRegisterWeb()
             })
         }
         .width('100%')
@@ -140,5 +141,17 @@ export struct LoginPage {
         this.isLoading = false
         this.errorMsg = err.message || '登录失败，请检查网络'
       })
+  }
+
+  private openRegisterWeb(): void {
+    const ctx = getContext(this) as common.UIAbilityContext;
+    const want: Want = {
+      action: 'ohos.want.action.viewData',
+      uri: 'https://harmonycare.cn/login?tab=register'
+    };
+    ctx.startAbility(want)
+      .catch(() => {
+        this.errorMsg = '无法打开网页，请稍后重试';
+      });
   }
 }

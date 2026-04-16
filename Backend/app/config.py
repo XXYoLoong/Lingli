@@ -38,12 +38,34 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 小时
 
+    # 短信验证码配置（阿里云短信）
+    SMS_PROVIDER: str = "aliyun"
+    SMS_ALIYUN_ACCESS_KEY_ID: str = os.getenv("SMS_ALIYUN_ACCESS_KEY_ID", "")
+    SMS_ALIYUN_ACCESS_KEY_SECRET: str = os.getenv("SMS_ALIYUN_ACCESS_KEY_SECRET", "")
+    SMS_ALIYUN_SIGN_NAME: str = os.getenv("SMS_ALIYUN_SIGN_NAME", "")
+    SMS_ALIYUN_TEMPLATE_CODE: str = os.getenv("SMS_ALIYUN_TEMPLATE_CODE", "")
+    RESET_CODE_EXPIRE_MINUTES: int = 10
+    RESET_CODE_RESEND_SECONDS: int = 60
+
+    # 邮件验证码配置（SMTP）
+    EMAIL_PROVIDER: str = "smtp"
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "false").lower() == "true"
+    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "true").lower() == "true"
+
+    # 超级管理员（仅该账号可做系统管理）
+    SUPER_ADMIN_NAME: str = "小小游龙"
+
     # Qwen API 配置
     DASHSCOPE_API_KEY: str = os.getenv("DASHSCOPE_API_KEY", "")
     QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    QWEN_MODEL_DEFAULT: str = "qwen-plus"
-    QWEN_MODEL_REVIEW: str = "qwen-plus"
-    QWEN_MODEL_SUMMARY: str = "qwen-flash"
+    QWEN_MODEL_DEFAULT: str = "deepseek-chat"
+    QWEN_MODEL_REVIEW: str = "deepseek-chat"
+    QWEN_MODEL_SUMMARY: str = "deepseek-reasoner"
     QWEN_TIMEOUT: int = 30
     QWEN_MAX_RETRIES: int = 3
 

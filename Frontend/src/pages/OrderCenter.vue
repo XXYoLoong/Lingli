@@ -4,7 +4,7 @@
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true" :model="queryParams">
         <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="全部" clearable>
+          <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="已创建" value="created" />
             <el-option label="待派单" value="pending_dispatch" />
             <el-option label="待接单" value="pending_accept" />
@@ -16,7 +16,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="服务类型">
-          <el-select v-model="queryParams.service_type" placeholder="全部" clearable>
+          <el-select v-model="queryParams.service_type" placeholder="全部" clearable style="width: 160px">
             <el-option label="维修" value="维修" />
             <el-option label="保洁" value="保洁" />
             <el-option label="助餐" value="助餐" />
@@ -41,7 +41,11 @@
         </div>
       </template>
       <el-table :data="orders" v-loading="loading" stripe>
-        <el-table-column prop="order_no" label="工单号" width="170" />
+        <el-table-column prop="order_no" label="工单号" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="order-no-cell">{{ row.order_no }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="标题" show-overflow-tooltip />
         <el-table-column prop="service_type" label="类型" width="80" />
         <el-table-column prop="contact_name" label="联系人" width="80" />
@@ -117,6 +121,7 @@ const total = ref(0)
 const drawerVisible = ref(false)
 const selectedOrder = ref<ServiceOrder | null>(null)
 const showExportDialog = ref(false)
+const usingMockData = ref(false)
 
 const queryParams = reactive({
   status: '',
@@ -159,6 +164,7 @@ function urgencyLabel(level: string) {
 }
 
 function canAiReview(order: ServiceOrder) {
+  if (usingMockData.value) return false
   return ['created', 'pending_dispatch', 'pending_accept'].includes(order.status)
 }
 
@@ -170,10 +176,12 @@ async function loadOrders() {
     if (queryParams.service_type) params.service_type = queryParams.service_type
     orders.value = await orderApi.list(params)
     total.value = orders.value.length
+    usingMockData.value = false
   } catch {
     // 使用 mock 数据
     orders.value = generateMockOrders()
     total.value = orders.value.length
+    usingMockData.value = true
   } finally {
     loading.value = false
   }
@@ -192,11 +200,15 @@ function viewOrder(order: ServiceOrder) {
 }
 
 async function aiReview(order: ServiceOrder) {
+  if (usingMockData.value || order.id.startsWith('order-')) {
+    ElMessage.warning('当前为离线示例数据，无法创建AI任务')
+    return
+  }
   try {
     await aiApi.review({ order_id: order.id, task_type: 'review' })
     ElMessage.success('AI 审核任务已提交，请稍后查看结果')
   } catch {
-    ElMessage.warning('AI 服务暂不可用')
+    // 全局拦截器会提示后端返回原因，避免重复弹窗
   }
 }
 
@@ -235,6 +247,15 @@ onMounted(() => loadOrders())
 
 <style scoped lang="scss">
 .order-center {
+  .order-no-cell {
+    display: inline-block;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+
   .filter-card {
     margin-bottom: 16px;
   }

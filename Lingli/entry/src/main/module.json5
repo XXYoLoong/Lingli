@@ -10,6 +10,51 @@
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.LOCATION"
+        ,"reason": "$string:location_permission_reason"
+        ,"usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.APPROXIMATELY_LOCATION"
+        ,"reason": "$string:location_permission_reason"
+        ,"usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.CAMERA"
+        ,"reason": "$string:camera_permission_reason"
+        ,"usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.DETECT_GESTURE",
+        "reason": "$string:detect_gesture_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      }
+    ],
     "pages": "$profile:main_pages",
     "abilities": [
       {

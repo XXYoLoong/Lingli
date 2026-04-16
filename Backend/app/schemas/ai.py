@@ -17,7 +17,7 @@ class AiTaskRequest(BaseModel):
 
 class AiReviewResponse(BaseModel):
     """AI 审核响应"""
-    task_id: uuid.UUID
+    task_id: str
     status: AiTaskStatusEnum
     category_suggestion: Optional[str]
     urgency_suggestion: Optional[str]
@@ -28,7 +28,9 @@ class AiReviewResponse(BaseModel):
 
 class AiTaskResponse(BaseModel):
     """AI 任务响应"""
-    task_id: uuid.UUID
+    task_id: str
+    order_id: str | None = None
+    order_no: str | None = None
     task_type: AiTaskTypeEnum
     status: AiTaskStatusEnum
     model_name: Optional[str]

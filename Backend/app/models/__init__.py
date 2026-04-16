@@ -7,3 +7,5 @@ from app.models.dispatch import DispatchTask, DispatchStatusEnum
 from app.models.message import Message, MessageTypeEnum
 from app.models.ai_log import AiReviewLog, AiTaskStatusEnum
 from app.models.audit import AuditLog
+from app.models.password_reset import PasswordResetCode
+from app.models.email_bind import EmailBindCode

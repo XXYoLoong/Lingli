@@ -16,14 +16,14 @@
 
       <el-form :inline="true" :model="queryParams">
         <el-form-item label="任务类型">
-          <el-select v-model="queryParams.task_type" placeholder="全部" clearable>
+          <el-select v-model="queryParams.task_type" placeholder="全部" clearable style="width: 160px">
             <el-option label="工单审核" value="review" />
             <el-option label="工单摘要" value="summary" />
             <el-option label="工单分类" value="classify" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="全部" clearable>
+          <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="待处理" value="pending" />
             <el-option label="处理中" value="processing" />
             <el-option label="已完成" value="completed" />
@@ -37,6 +37,7 @@
 
       <el-table :data="aiTasks" v-loading="loading" stripe>
         <el-table-column prop="task_id" label="任务ID" width="280" show-overflow-tooltip />
+        <el-table-column prop="order_no" label="工单号" width="220" show-overflow-tooltip />
         <el-table-column prop="task_type" label="类型" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ taskTypeLabel(row.task_type) }}</el-tag>
@@ -50,7 +51,7 @@
         <el-table-column prop="model_name" label="模型" width="120" />
         <el-table-column prop="confidence" label="置信度" width="100">
           <template #default="{ row }">
-            <span v-if="row.confidence !== null">{{ (row.confidence * 100).toFixed(0) }}%</span>
+            <span v-if="typeof row.confidence === 'number'">{{ (row.confidence * 100).toFixed(0) }}%</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -96,11 +97,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import type { AiReviewResult } from '@/types'
+import type { AiReviewResult, AiTaskItem } from '@/types'
 import { ElMessage } from 'element-plus'
+import { aiApi } from '@/services/api'
 
 const loading = ref(false)
-const aiTasks = ref<Partial<AiReviewResult & { task_type: string; model_name: string; created_at: string }>[]>([])
+const aiTasks = ref<AiTaskItem[]>([])
 const showResultDialog = ref(false)
 const selectedResult = ref<AiReviewResult | null>(null)
 const aiStatus = ref<'active' | 'disabled'>('active')
@@ -140,15 +142,25 @@ function aiStatusLabel(status: string) {
 async function loadAiTasks() {
   loading.value = true
   try {
-    aiTasks.value = generateMockAiTasks()
+    const params: Record<string, string> = {}
+    if (queryParams.task_type) params.task_type = queryParams.task_type
+    if (queryParams.status) params.status_filter = queryParams.status
+    aiTasks.value = await aiApi.listTasks(params)
+    aiStatus.value = 'active'
+  } catch {
+    aiTasks.value = []
+    aiStatus.value = 'disabled'
   } finally {
     loading.value = false
   }
 }
 
-function viewResult(row: Partial<AiReviewResult>) {
-  selectedResult.value = row as AiReviewResult
-  showResultDialog.value = true
+async function viewResult(row: AiTaskItem) {
+  try {
+    selectedResult.value = await aiApi.getResult(row.task_id)
+    showResultDialog.value = true
+  } catch {
+  }
 }
 
 function approveReview() {
@@ -161,24 +173,6 @@ function rejectReview() {
   showResultDialog.value = false
 }
 
-function generateMockAiTasks() {
-  const types = ['review', 'summary', 'classify']
-  const statuses = ['completed', 'processing', 'pending', 'failed']
-  const models = ['qwen-plus', 'qwen-flash']
-  return Array.from({ length: 12 }, (_, i) => ({
-    task_id: `ai-task-${String(i).padStart(6, '0')}`,
-    task_type: types[i % types.length],
-    status: statuses[i % statuses.length],
-    model_name: models[i % models.length],
-    category_suggestion: i % 2 === 0 ? '维修' : '保洁',
-    urgency_suggestion: i % 3 === 0 ? 'high' : 'normal',
-    risk_tags: i % 4 === 0 ? ['老人独居', '行动不便'] : [],
-    summary: `工单${i + 1}的AI分析摘要：该工单属于常规社区服务需求，建议优先安排处理。`,
-    confidence: 0.7 + Math.random() * 0.25,
-    created_at: new Date(Date.now() - i * 3600000).toISOString().replace('T', ' ').slice(0, 19),
-  }))
-}
-
 onMounted(() => loadAiTasks())
 </script>
 
@@ -189,7 +183,7 @@ onMounted(() => loadAiTasks())
     justify-content: space-between;
     align-items: center;
   }
-  .risk_tag {
+  .risk-tag {
     margin-right: 4px;
   }
   .dialog-footer {

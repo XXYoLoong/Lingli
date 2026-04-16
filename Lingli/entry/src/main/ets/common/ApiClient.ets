@@ -5,8 +5,8 @@
 
 import { http } from '@kit.NetworkKit';
 
-// 后端地址 - 云端环境
-const BASE_URL = 'http://harmonycare.cn/api/v1';
+// 后端地址 - 云端环境（使用 HTTPS，避免重定向导致的 URL 异常）
+const BASE_URL = 'https://harmonycare.cn/api/v1';
 
 export interface ApiResponse<T> {
   code: number;
@@ -160,6 +160,10 @@ export class ApiClient {
   private async doRequest<T>(method: string, url: string, data?: string): Promise<ApiResponse<T>> {
     const httpRequest = http.createHttp();
     try {
+      const requestUrl = url.trim();
+      if (requestUrl.length === 0) {
+        throw new Error('接口地址为空');
+      }
       const header: Record<string, string> = {
         'Content-Type': 'application/json'
       };
@@ -167,7 +171,7 @@ export class ApiClient {
         header['Authorization'] = `Bearer ${this.token}`;
       }
 
-      const response = await httpRequest.request(url, {
+      const response = await httpRequest.request(requestUrl, {
         method: method as http.RequestMethod,
         header: header,
         extraData: data,
@@ -176,12 +180,12 @@ export class ApiClient {
       });
 
       if (response.responseCode === 200 || response.responseCode === 201) {
-        return this.normalizeResponse<T>(response.result as string | ESObject);
+        return this.normalizeResponse<T>(response.result as string | Object);
       }
       if (response.responseCode === 401) {
         this.clearToken();
       }
-      const serverMsg = this.extractServerMessage(response.result as string | ESObject);
+      const serverMsg = this.extractServerMessage(response.result as string | Object);
       if (serverMsg.length > 0) {
         throw new Error(serverMsg);
       }
@@ -189,6 +193,9 @@ export class ApiClient {
     } catch (err) {
       const e = err as Error;
       if (e && e.message && e.message.length > 0) {
+        if (e.message.indexOf('Invalid URL') >= 0 || e.message.indexOf('missing URL') >= 0) {
+          throw new Error('接口地址异常，请更新应用后重试');
+        }
         throw e;
       }
       throw new Error('服务器无响应，请检查网络连接');
@@ -197,13 +204,13 @@ export class ApiClient {
     }
   }
 
-  private normalizeResponse<T>(rawResult: string | ESObject): ApiResponse<T> {
-    let payload: ESObject = rawResult as ESObject;
+  private normalizeResponse<T>(rawResult: string | Object): ApiResponse<T> {
+    let payload: Object = rawResult as Object;
     if (typeof rawResult === 'string') {
       if (rawResult.length === 0) {
-        return { code: 200, message: 'ok', data: {} as T, requestId: '' };
+        return { code: 200, message: 'ok', data: '' as T, requestId: '' };
       }
-      payload = JSON.parse(rawResult) as ESObject;
+      payload = JSON.parse(rawResult) as Object;
     }
 
     const wrapped = payload as ApiResponse<T>;
@@ -218,13 +225,13 @@ export class ApiClient {
     };
   }
 
-  private extractServerMessage(rawResult: string | ESObject): string {
-    let payload: ESObject = rawResult as ESObject;
+  private extractServerMessage(rawResult: string | Object): string {
+    let payload: Object = rawResult as Object;
     if (typeof rawResult === 'string') {
       if (rawResult.length === 0) {
         return '';
       }
-      payload = JSON.parse(rawResult) as ESObject;
+      payload = JSON.parse(rawResult) as Object;
     }
     const msgObj = payload as Record<string, string>;
     if (msgObj['detail']) {

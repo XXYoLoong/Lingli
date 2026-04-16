@@ -3,16 +3,22 @@
  */
 
 import { completeOrder } from '../common/ApiClient';
+import { abilityAccessCtrl, common, Permissions, Want } from '@kit.AbilityKit';
 
 @Component
 export struct ServiceResultPage {
+  @StorageLink('currentOrderId') orderId: string = ''
+  @StorageLink('currentOrderNo') orderNo: string = ''
+  @StorageLink('currentOrderTitle') orderTitle: string = ''
+
   @State result: string = ''
   @State hasAbnormal: boolean = false
   @State abnormalReason: string = ''
   @State isSubmitting: boolean = false
-  @State photoCount: number = 0
+  @State photoUris: string[] = []
   @State statusMsg: string = ''
   @State selectedTags: string[] = []
+  @State capturing: boolean = false
   private abnormalTags: string[] = [
     '客户不在家', '设备损坏', '无法进入', '客户取消',
     '缺少配件', '需要二次上门', '安全隐患'
@@ -25,9 +31,13 @@ export struct ServiceResultPage {
         .fontWeight(FontWeight.Bold)
         .fontColor('#333')
         .margin({ top: 20, bottom: 8 })
-      Text('工单 NL202604140002')
+      Text(this.orderNo || '请选择工单')
         .fontSize(14)
         .fontColor('#999')
+        .margin({ bottom: 6 })
+      Text(this.orderTitle || '未选择工单')
+        .fontSize(16)
+        .fontColor('#666')
         .margin({ bottom: 24 })
 
       Column() {
@@ -39,11 +49,16 @@ export struct ServiceResultPage {
           .margin({ bottom: 12 })
 
         Flex({ wrap: FlexWrap.Wrap }) {
-          ForEach(this.getPhotoList(), (item: number) => {
+          ForEach(this.photoUris, (uri: string, index: number) => {
             Column() {
-              Text('图片' + (item + 1))
+              Text('图片' + (index + 1))
                 .fontSize(12)
+                .fontColor('#666')
+              Text(uri)
+                .fontSize(9)
                 .fontColor('#999')
+                .maxLines(1)
+                .margin({ top: 4, left: 4, right: 4 })
             }
             .width(80)
             .height(80)
@@ -51,11 +66,11 @@ export struct ServiceResultPage {
             .borderRadius(8)
             .margin({ right: 10, bottom: 10 })
             .justifyContent(FlexAlign.Center)
-          }, (item: number) => 'photo-' + item)
+          }, (uri: string) => uri)
 
-          if (this.photoCount < 3) {
+          if (this.photoUris.length < 3) {
             Column() {
-              Text('+')
+              Text(this.capturing ? '...' : '+')
                 .fontSize(28)
                 .fontColor('#ccc')
             }
@@ -69,9 +84,7 @@ export struct ServiceResultPage {
             .margin({ right: 10, bottom: 10 })
             .justifyContent(FlexAlign.Center)
             .onClick(() => {
-              if (this.photoCount < 3) {
-                this.photoCount++
-              }
+              this.capturePhoto()
             })
           }
         }
@@ -171,7 +184,7 @@ export struct ServiceResultPage {
         .backgroundColor(this.result.length > 0 ? '#52c41a' : '#ccc')
         .borderRadius(8)
         .enabled(this.result.length > 0 && !this.isSubmitting)
-        .margin({ bottom: 30 })
+        .margin({ bottom: 98 })
         .onClick(() => {
           this.submitResult()
         })
@@ -180,16 +193,6 @@ export struct ServiceResultPage {
     .height('100%')
     .backgroundColor('#f5f7fa')
     .padding({ left: 20, right: 20 })
-  }
-
-  private getPhotoList(): number[] {
-    const list: number[] = []
-    let i = 0
-    while (i < this.photoCount) {
-      list.push(i)
-      i++
-    }
-    return list
   }
 
   private isTagSelected(tag: string): boolean {
@@ -208,29 +211,36 @@ export struct ServiceResultPage {
         j++
       }
       this.selectedTags = newList
-    } else {
-      const newList: string[] = []
-      let k = 0
-      while (k < this.selectedTags.length) {
-        newList.push(this.selectedTags[k])
-        k++
-      }
-      newList.push(tag)
-      this.selectedTags = newList
+      return
     }
+
+    const appendList: string[] = []
+    let k = 0
+    while (k < this.selectedTags.length) {
+      appendList.push(this.selectedTags[k])
+      k++
+    }
+    appendList.push(tag)
+    this.selectedTags = appendList
   }
 
   private submitResult(): void {
+    if (this.orderId.length === 0) {
+      this.statusMsg = '请先在待办列表选择工单'
+      return
+    }
     this.isSubmitting = true
     this.statusMsg = ''
 
-    let body = `{"service_result":"${this.result}","abnormal_flag":${this.hasAbnormal}`
-    if (this.hasAbnormal && this.abnormalReason.length > 0) {
-      body += `,"abnormal_reason":"${this.abnormalReason}"`
+    const mergedReason = this.buildAbnormalReason()
+    let body = `{"service_result":"${this.escapeJson(this.result)}","abnormal_flag":${this.hasAbnormal}`
+    if (this.hasAbnormal && mergedReason.length > 0) {
+      body += `,"abnormal_reason":"${this.escapeJson(mergedReason)}"`
     }
+    body += `,"attachment_keys":${this.buildAttachmentJson()}`
     body += '}'
 
-    completeOrder('placeholder-id', body)
+    completeOrder(this.orderId, body)
       .then(() => {
         this.isSubmitting = false
         this.statusMsg = '工单完成提交成功！'
@@ -239,5 +249,117 @@ export struct ServiceResultPage {
         this.isSubmitting = false
         this.statusMsg = '提交失败: ' + err.message
       })
+  }
+
+  private buildAbnormalReason(): string {
+    let reason = this.abnormalReason
+    if (this.selectedTags.length > 0) {
+      let tags = ''
+      let i = 0
+      while (i < this.selectedTags.length) {
+        if (i > 0) {
+          tags += '、'
+        }
+        tags += this.selectedTags[i]
+        i++
+      }
+      reason = reason.length > 0 ? `${tags}；${reason}` : tags
+    }
+    return reason
+  }
+
+  private buildAttachmentJson(): string {
+    if (this.photoUris.length === 0) {
+      return '[]'
+    }
+    let text = '['
+    let i = 0
+    while (i < this.photoUris.length) {
+      if (i > 0) {
+        text += ','
+      }
+      text += `"${this.escapeJson(this.photoUris[i])}"`
+      i++
+    }
+    text += ']'
+    return text
+  }
+
+  private async capturePhoto(): Promise<void> {
+    if (this.capturing || this.photoUris.length >= 3) {
+      return
+    }
+
+    const ctx = this.getAbilityContext()
+    if (!ctx) {
+      this.statusMsg = '当前页面上下文不可用，请稍后重试'
+      return
+    }
+    const granted = await this.requestPermissions(ctx, [
+      'ohos.permission.CAMERA' as Permissions
+    ])
+    if (!granted) {
+      this.statusMsg = '未授予相机权限，无法拍照'
+      return
+    }
+
+    this.capturing = true
+    try {
+      const want: Want = {
+        action: 'ohos.want.action.imageCapture'
+      }
+      const result = await ctx.startAbilityForResult(want)
+      const params = result.want?.parameters as Record<string, string> | undefined
+      const uri = (params?.resourceUri || params?.uri || '').trim()
+      if (uri.length > 0) {
+        const next: string[] = []
+        let i = 0
+        while (i < this.photoUris.length) {
+          next.push(this.photoUris[i])
+          i++
+        }
+        next.push(uri)
+        this.photoUris = next
+        this.statusMsg = '拍照成功'
+      } else {
+        this.statusMsg = '拍照完成，但未读取到照片路径'
+      }
+    } catch (_err) {
+      this.statusMsg = '拍照失败，请重试'
+    } finally {
+      this.capturing = false
+    }
+  }
+
+  private async requestPermissions(ctx: common.UIAbilityContext | undefined, perms: Permissions[]): Promise<boolean> {
+    if (!ctx) {
+      return false
+    }
+    const atManager = abilityAccessCtrl.createAtManager()
+    try {
+      const result = await atManager.requestPermissionsFromUser(ctx, perms)
+      if (!result.authResults || result.authResults.length === 0) {
+        return false
+      }
+      let i = 0
+      while (i < result.authResults.length) {
+        if (result.authResults[i] !== 0) {
+          return false
+        }
+        i++
+      }
+      return true
+    } catch (_err) {
+      return false
+    }
+  }
+
+  private escapeJson(raw: string): string {
+    return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
+  }
+
+  private getAbilityContext(): common.UIAbilityContext | undefined {
+    const hostContext = this.getUIContext().getHostContext()
+    return hostContext as common.UIAbilityContext | undefined
   }
 }

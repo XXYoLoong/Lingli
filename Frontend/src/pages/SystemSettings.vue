@@ -1,6 +1,58 @@
 <template>
   <div class="system-settings">
+    <el-alert
+      v-if="!isSuperAdmin"
+      title="仅小小游龙账号可进行系统配置管理"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="mb-16"
+    />
     <el-tabs v-model="activeTab" type="card">
+      <el-tab-pane label="账户安全" name="security">
+        <el-card>
+          <template #header>账户安全</template>
+          <el-form :model="emailForm" label-width="120px" style="max-width: 520px; margin-bottom: 12px">
+            <el-form-item label="当前邮箱">
+              <el-input :value="userStore.user?.email || '未绑定'" disabled />
+            </el-form-item>
+            <el-form-item label="绑定/新邮箱">
+              <el-input v-model="emailForm.email" placeholder="请输入邮箱地址" />
+            </el-form-item>
+            <el-form-item label="验证码">
+              <el-row style="width: 100%" :gutter="8">
+                <el-col :span="14">
+                  <el-input v-model="emailForm.code" maxlength="6" placeholder="请输入6位验证码" />
+                </el-col>
+                <el-col :span="10">
+                  <el-button :disabled="emailCodeCooldown > 0 || !emailForm.email" @click="sendMyEmailCode">
+                    {{ emailCodeCooldown > 0 ? `${emailCodeCooldown}s后重发` : '发送验证码' }}
+                  </el-button>
+                </el-col>
+              </el-row>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="emailSaving" @click="changeMyEmail">验证并绑定邮箱</el-button>
+            </el-form-item>
+          </el-form>
+          <el-divider />
+          <el-form :model="passwordForm" label-width="120px" style="max-width: 520px">
+            <el-form-item label="当前密码">
+              <el-input v-model="passwordForm.old_password" type="password" show-password />
+            </el-form-item>
+            <el-form-item label="新密码">
+              <el-input v-model="passwordForm.new_password" type="password" show-password />
+            </el-form-item>
+            <el-form-item label="确认新密码">
+              <el-input v-model="passwordForm.confirm_password" type="password" show-password />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="passwordSaving" @click="changeMyPassword">更新密码</el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </el-tab-pane>
+
       <el-tab-pane label="数据字典" name="dictionary">
         <el-card>
           <template #header>数据字典管理</template>
@@ -40,15 +92,14 @@
           <el-form label-width="120px">
             <el-form-item label="审核模型">
               <el-select v-model="modelConfig.reviewModel" style="width: 200px">
-                <el-option label="qwen-plus" value="qwen-plus" />
-                <el-option label="qwen-max" value="qwen-max" />
-                <el-option label="qwen-flash" value="qwen-flash" />
+                <el-option label="deepseek-chat" value="deepseek-chat" />
+                <el-option label="deepseek-reasoner" value="deepseek-reasoner" />
               </el-select>
             </el-form-item>
             <el-form-item label="摘要模型">
               <el-select v-model="modelConfig.summaryModel" style="width: 200px">
-                <el-option label="qwen-flash" value="qwen-flash" />
-                <el-option label="qwen-plus" value="qwen-plus" />
+                <el-option label="deepseek-chat" value="deepseek-chat" />
+                <el-option label="deepseek-reasoner" value="deepseek-reasoner" />
               </el-select>
             </el-form-item>
             <el-form-item label="日调用限额">
@@ -58,7 +109,7 @@
               <el-switch v-model="modelConfig.enabled" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="saveModelConfig">保存配置</el-button>
+              <el-button type="primary" :disabled="!isSuperAdmin" @click="saveModelConfig">保存配置</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -119,10 +170,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive, onBeforeUnmount, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
+import { authApi, userApi } from '@/services/api'
+import { useRoute } from 'vue-router'
 
-const activeTab = ref('dictionary')
+const activeTab = ref('security')
+const route = useRoute()
+const userStore = useUserStore()
+const isSuperAdmin = computed(() => userStore.isSuperAdmin())
+const passwordSaving = ref(false)
+const emailSaving = ref(false)
+const emailCodeCooldown = ref(0)
+let emailCodeTimer: number | null = null
+const emailForm = reactive({
+  email: '',
+  code: '',
+})
+const passwordForm = reactive({
+  old_password: '',
+  new_password: '',
+  confirm_password: '',
+})
 
 const dictionaries = ref([
   { category: '服务类型', key: 'service_type', label: '维修服务', value: '维修' },
@@ -145,8 +215,8 @@ const templates = ref([
 ])
 
 const modelConfig = reactive({
-  reviewModel: 'qwen-plus',
-  summaryModel: 'qwen-flash',
+  reviewModel: 'deepseek-chat',
+  summaryModel: 'deepseek-reasoner',
   dailyLimit: 1000,
   enabled: true,
 })
@@ -161,12 +231,96 @@ const permissionMatrix = ref([
 ])
 
 function saveModelConfig() {
+  if (!isSuperAdmin.value) {
+    ElMessage.warning('仅小小游龙账号可保存系统配置')
+    return
+  }
   ElMessage.success('模型配置已保存')
 }
+
+async function changeMyPassword() {
+  if (!passwordForm.old_password || !passwordForm.new_password || !passwordForm.confirm_password) {
+    ElMessage.warning('请填写完整密码信息')
+    return
+  }
+  if (passwordForm.new_password.length < 8) {
+    ElMessage.warning('新密码至少8位')
+    return
+  }
+  if (passwordForm.new_password !== passwordForm.confirm_password) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await authApi.changePassword({
+      old_password: passwordForm.old_password,
+      new_password: passwordForm.new_password,
+    })
+    ElMessage.success('密码已修改，请牢记新密码')
+    passwordForm.old_password = ''
+    passwordForm.new_password = ''
+    passwordForm.confirm_password = ''
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+async function changeMyEmail() {
+  if (!emailForm.email || !emailForm.code) {
+    ElMessage.warning('请填写邮箱和验证码')
+    return
+  }
+  emailSaving.value = true
+  try {
+    const user = await userApi.verifyMyEmail(emailForm.email, emailForm.code)
+    userStore.user = user
+    ElMessage.success('邮箱已更新')
+    emailForm.code = ''
+  } finally {
+    emailSaving.value = false
+  }
+}
+
+async function sendMyEmailCode() {
+  if (!emailForm.email) {
+    ElMessage.warning('请先输入邮箱')
+    return
+  }
+  await userApi.sendMyEmailCode(emailForm.email)
+  ElMessage.success('验证码已发送，请查收邮箱')
+  emailCodeCooldown.value = 60
+  if (emailCodeTimer) window.clearInterval(emailCodeTimer)
+  emailCodeTimer = window.setInterval(() => {
+    if (emailCodeCooldown.value > 0) {
+      emailCodeCooldown.value -= 1
+    } else if (emailCodeTimer) {
+      window.clearInterval(emailCodeTimer)
+      emailCodeTimer = null
+    }
+  }, 1000)
+}
+
+onMounted(() => {
+  const tab = String(route.query.tab || '')
+  if (tab === 'security' || tab === 'dictionary' || tab === 'templates' || tab === 'model' || tab === 'permissions') {
+    activeTab.value = tab
+  }
+})
+
+onBeforeUnmount(() => {
+  if (emailCodeTimer) {
+    window.clearInterval(emailCodeTimer)
+    emailCodeTimer = null
+  }
+})
 </script>
 
 <style scoped lang="scss">
 .system-settings {
+  .mb-16 {
+    margin-bottom: 16px;
+  }
   :deep(.el-tabs__content) {
     padding-top: 16px;
   }

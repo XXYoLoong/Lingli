@@ -24,8 +24,10 @@ export const useUserStore = defineStore('user', () => {
   async function fetchMe() {
     try {
       user.value = await authApi.getMe()
+      return user.value
     } catch {
       logout()
+      throw new Error('获取用户信息失败')
     }
   }
 
@@ -35,5 +37,11 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('token')
   }
 
-  return { user, token, login, register, fetchMe, logout }
+  function isSuperAdmin() {
+    const name = user.value?.real_name || ''
+    const username = user.value?.username || ''
+    return name === '小小游龙' || username === '小小游龙' || username === 'xiaoxiaoyoulong'
+  }
+
+  return { user, token, login, register, fetchMe, logout, isSuperAdmin }
 })

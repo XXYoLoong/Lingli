@@ -40,9 +40,25 @@ export interface LoginRequest {
 export interface RegisterRequest {
   username: string
   phone: string
+  email?: string
   password: string
   real_name?: string
   role?: 'resident'
+}
+
+export interface SendResetCodeRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  email: string
+  code: string
+  new_password: string
+}
+
+export interface ChangePasswordRequest {
+  old_password: string
+  new_password: string
 }
 
 export interface TokenResponse {
@@ -143,6 +159,18 @@ export interface AiReviewResult {
   risk_tags: string[]
   summary: string | null
   confidence: number | null
+}
+
+export interface AiTaskItem {
+  task_id: string
+  order_id?: string | null
+  order_no?: string | null
+  task_type: 'review' | 'summary' | 'classify' | 'analysis'
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  model_name: string | null
+  confidence?: number | null
+  created_at: string
+  completed_at: string | null
 }
 
 export interface AiTaskRequest {

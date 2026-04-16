@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.api import auth, orders, dispatch, messages, stats, stations, ai
+from app.api import auth, orders, dispatch, messages, stats, stations, ai, users
 
 # 配置日志
 logging.basicConfig(
@@ -79,6 +79,7 @@ app.include_router(messages.router, prefix=API_PREFIX)
 app.include_router(stats.router, prefix=API_PREFIX)
 app.include_router(stations.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
+app.include_router(users.router, prefix=API_PREFIX)
 
 
 @app.get("/health", tags=["健康检查"])

@@ -28,9 +28,25 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     """更新用户信息"""
     real_name: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     avatar_url: Optional[str] = None
     station_id: Optional[uuid.UUID] = None
+
+
+class UserEmailUpdate(BaseModel):
+    """用户绑定或修改邮箱"""
+    email: EmailStr
+
+
+class UserEmailCodeSend(BaseModel):
+    """发送邮箱绑定验证码"""
+    email: EmailStr
+
+
+class UserEmailVerify(BaseModel):
+    """验证邮箱绑定验证码"""
+    email: EmailStr
+    code: str = Field(..., pattern=r"^\d{6}$")
 
 
 class WorkerProfileCreate(BaseModel):

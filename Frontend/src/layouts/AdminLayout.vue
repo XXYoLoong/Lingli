@@ -11,29 +11,9 @@
         router
         class="side-menu"
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <template #title>驾驶舱</template>
-        </el-menu-item>
-        <el-menu-item index="/orders">
-          <el-icon><Tickets /></el-icon>
-          <template #title>工单中心</template>
-        </el-menu-item>
-        <el-menu-item index="/dispatch">
-          <el-icon><Share /></el-icon>
-          <template #title>调度中心</template>
-        </el-menu-item>
-        <el-menu-item index="/ai-review">
-          <el-icon><MagicStick /></el-icon>
-          <template #title>AI 审核</template>
-        </el-menu-item>
-        <el-menu-item index="/users">
-          <el-icon><UserFilled /></el-icon>
-          <template #title>用户管理</template>
-        </el-menu-item>
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <template #title>系统设置</template>
+        <el-menu-item v-for="item in visibleMenus" :key="item.index" :index="item.index">
+          <el-icon><component :is="item.icon" /></el-icon>
+          <template #title>{{ item.title }}</template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -60,6 +40,7 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="profile">个人信息</el-dropdown-item>
                 <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -92,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
@@ -108,12 +89,64 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
-const { user, sidebarCollapsed } = storeToRefs(appStore)
+const { user } = storeToRefs(userStore)
+const { sidebarCollapsed } = storeToRefs(appStore)
 const { toggleSidebar } = appStore
 
 const showMessages = ref(false)
 const unreadCount = ref(0)
 const messages = ref<Message[]>([])
+
+const menuItems = [
+  {
+    index: '/dashboard',
+    title: '仪表盘',
+    icon: Odometer,
+    roles: ['resident', 'worker', 'station_manager', 'dispatcher', 'operator', 'admin'],
+  },
+  {
+    index: '/orders',
+    title: '工单中心',
+    icon: Tickets,
+    roles: ['resident', 'worker', 'station_manager', 'dispatcher', 'operator', 'admin'],
+  },
+  {
+    index: '/dispatch',
+    title: '调度中心',
+    icon: Share,
+    roles: ['worker', 'station_manager', 'dispatcher', 'admin'],
+  },
+  {
+    index: '/ai-review',
+    title: 'AI 审核',
+    icon: MagicStick,
+    roles: ['station_manager', 'operator', 'admin'],
+  },
+  {
+    index: '/users',
+    title: '用户管理',
+    icon: UserFilled,
+    roles: ['admin'],
+    superOnly: true,
+  },
+  {
+    index: '/settings',
+    title: '系统设置',
+    icon: Setting,
+    roles: ['admin'],
+    superOnly: true,
+  },
+] as const
+
+const visibleMenus = computed(() => {
+  const role = user.value?.role
+  if (!role) return menuItems.filter((item) => !item.superOnly)
+  return menuItems.filter((item) => {
+    if (!item.roles.includes(role)) return false
+    if (item.superOnly && !userStore.isSuperAdmin()) return false
+    return true
+  })
+})
 
 onMounted(async () => {
   if (userStore.token) {
@@ -130,9 +163,18 @@ onMounted(async () => {
 })
 
 function handleUserCommand(command: string) {
+  if (command === 'profile') {
+    router.push('/settings?tab=security')
+    return
+  }
   if (command === 'logout') {
     userStore.logout()
-    router.push('/login')
+    router.replace('/login')
+    window.setTimeout(() => {
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login')
+      }
+    }, 0)
   }
 }
 </script>
@@ -143,7 +185,7 @@ function handleUserCommand(command: string) {
 }
 
 .layout-aside {
-  background-color: #001529;
+  background: linear-gradient(180deg, #0b1f3d 0%, #001529 100%);
   transition: width 0.3s;
   overflow: hidden;
 }
@@ -182,8 +224,9 @@ function handleUserCommand(command: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   padding: 0 20px;
 }
 
@@ -227,8 +270,8 @@ function handleUserCommand(command: string) {
 }
 
 .layout-main {
-  background: #f0f2f5;
-  padding: 20px;
+  background: #f4f6fb;
+  padding: 20px 24px;
   overflow-y: auto;
 }
 

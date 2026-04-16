@@ -98,11 +98,19 @@ DATABASE_URL=sqlite+pysqlite:///$APP_DIR/backend/neighbor.db
 SECRET_KEY=$SECRET_KEY
 DASHSCOPE_API_KEY=
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_MODEL_DEFAULT=qwen-plus
-QWEN_MODEL_REVIEW=qwen-plus
-QWEN_MODEL_SUMMARY=qwen-flash
+QWEN_MODEL_DEFAULT=deepseek-chat
+QWEN_MODEL_REVIEW=deepseek-chat
+QWEN_MODEL_SUMMARY=deepseek-reasoner
 QWEN_TIMEOUT=30
 QWEN_MAX_RETRIES=3
+SMS_PROVIDER=aliyun
+SMS_ALIYUN_ACCESS_KEY_ID=
+SMS_ALIYUN_ACCESS_KEY_SECRET=
+SMS_ALIYUN_SIGN_NAME=
+SMS_ALIYUN_TEMPLATE_CODE=
+RESET_CODE_EXPIRE_MINUTES=10
+RESET_CODE_RESEND_SECONDS=60
+SUPER_ADMIN_NAME=小小游龙
 UPLOAD_DIR=$APP_DIR/uploads
 MAX_UPLOAD_SIZE=10485760
 CORS_ORIGINS=["https://$DOMAIN","http://$DOMAIN","http://localhost:5173","http://127.0.0.1:5173"]
@@ -110,12 +118,34 @@ LOG_LEVEL=INFO
 ENVEOF
         fi
 
+        grep -q '^QWEN_MODEL_DEFAULT=' "$APP_DIR/backend/.env" && \
+          sed -i 's/^QWEN_MODEL_DEFAULT=.*/QWEN_MODEL_DEFAULT=deepseek-chat/' "$APP_DIR/backend/.env" || \
+          echo 'QWEN_MODEL_DEFAULT=deepseek-chat' >> "$APP_DIR/backend/.env"
+        grep -q '^QWEN_MODEL_REVIEW=' "$APP_DIR/backend/.env" && \
+          sed -i 's/^QWEN_MODEL_REVIEW=.*/QWEN_MODEL_REVIEW=deepseek-chat/' "$APP_DIR/backend/.env" || \
+          echo 'QWEN_MODEL_REVIEW=deepseek-chat' >> "$APP_DIR/backend/.env"
+        grep -q '^QWEN_MODEL_SUMMARY=' "$APP_DIR/backend/.env" && \
+          sed -i 's/^QWEN_MODEL_SUMMARY=.*/QWEN_MODEL_SUMMARY=deepseek-reasoner/' "$APP_DIR/backend/.env" || \
+          echo 'QWEN_MODEL_SUMMARY=deepseek-reasoner' >> "$APP_DIR/backend/.env"
+        grep -q '^SMS_PROVIDER=' "$APP_DIR/backend/.env" || echo 'SMS_PROVIDER=aliyun' >> "$APP_DIR/backend/.env"
+        grep -q '^SMS_ALIYUN_ACCESS_KEY_ID=' "$APP_DIR/backend/.env" || echo 'SMS_ALIYUN_ACCESS_KEY_ID=' >> "$APP_DIR/backend/.env"
+        grep -q '^SMS_ALIYUN_ACCESS_KEY_SECRET=' "$APP_DIR/backend/.env" || echo 'SMS_ALIYUN_ACCESS_KEY_SECRET=' >> "$APP_DIR/backend/.env"
+        grep -q '^SMS_ALIYUN_SIGN_NAME=' "$APP_DIR/backend/.env" || echo 'SMS_ALIYUN_SIGN_NAME=' >> "$APP_DIR/backend/.env"
+        grep -q '^SMS_ALIYUN_TEMPLATE_CODE=' "$APP_DIR/backend/.env" || echo 'SMS_ALIYUN_TEMPLATE_CODE=' >> "$APP_DIR/backend/.env"
+        grep -q '^RESET_CODE_EXPIRE_MINUTES=' "$APP_DIR/backend/.env" || echo 'RESET_CODE_EXPIRE_MINUTES=10' >> "$APP_DIR/backend/.env"
+        grep -q '^RESET_CODE_RESEND_SECONDS=' "$APP_DIR/backend/.env" || echo 'RESET_CODE_RESEND_SECONDS=60' >> "$APP_DIR/backend/.env"
+        grep -q '^SUPER_ADMIN_NAME=' "$APP_DIR/backend/.env" && \
+          sed -i 's/^SUPER_ADMIN_NAME=.*/SUPER_ADMIN_NAME=小小游龙/' "$APP_DIR/backend/.env" || \
+          echo 'SUPER_ADMIN_NAME=小小游龙' >> "$APP_DIR/backend/.env"
+
         cd "$APP_DIR/backend"
         "$APP_DIR/backend/venv/bin/python" - << 'PYEOF'
 from app.database import Base, engine, SessionLocal
 from app.models import *
+from datetime import datetime, timedelta
 from app.models.user import UserAccount, WorkerProfile, RoleEnum
 from app.models.station import ServiceStation
+from app.models.order import ServiceOrder, OrderStatusEnum
 from app.services.auth_service import hash_password
 
 Base.metadata.create_all(bind=engine)
@@ -159,6 +189,74 @@ try:
         if role == RoleEnum.WORKER:
             db.add(WorkerProfile(user_id=user.id, max_load=10, status="available"))
     db.commit()
+
+    super_admin = db.query(UserAccount).filter(
+        (UserAccount.username == "xiaoxiaoyoulong") | (UserAccount.real_name == "小小游龙")
+    ).first()
+    if super_admin is None:
+        super_admin = UserAccount(
+            username="xiaoxiaoyoulong",
+            phone="13900009999",
+            password_hash=hash_password("XylAdmin@123"),
+            role=RoleEnum.ADMIN,
+            real_name="小小游龙",
+            station_id=station.id,
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(super_admin)
+        db.commit()
+        db.refresh(super_admin)
+    else:
+        super_admin.role = RoleEnum.ADMIN
+        super_admin.real_name = "小小游龙"
+        super_admin.is_active = True
+        super_admin.is_verified = True
+        if super_admin.station_id is None:
+            super_admin.station_id = station.id
+        db.commit()
+
+    demo_resident = db.query(UserAccount).filter(UserAccount.phone == "13800000003").first()
+    if demo_resident is None:
+        demo_resident = db.query(UserAccount).filter(UserAccount.role == RoleEnum.RESIDENT).first()
+
+    order_count = db.query(ServiceOrder).count()
+    if demo_resident is not None and order_count < 12:
+        status_list = [
+            OrderStatusEnum.CREATED,
+            OrderStatusEnum.PENDING_DISPATCH,
+            OrderStatusEnum.PENDING_ACCEPT,
+            OrderStatusEnum.PENDING_ARRIVE,
+            OrderStatusEnum.IN_SERVICE,
+            OrderStatusEnum.PENDING_CONFIRM,
+            OrderStatusEnum.COMPLETED,
+            OrderStatusEnum.CLOSED,
+        ]
+        service_types = ["维修", "保洁", "助餐", "陪诊", "代办", "照护"]
+        base_time = datetime.utcnow()
+        for idx in range(12 - order_count):
+            status = status_list[idx % len(status_list)]
+            created_at = base_time - timedelta(hours=idx * 6)
+            order = ServiceOrder(
+                order_no="NL" + created_at.strftime("%Y%m%d%H%M%S") + str(idx).zfill(4),
+                station_id=station.id,
+                creator_id=demo_resident.id,
+                service_type=service_types[idx % len(service_types)],
+                title="示例工单" + str(idx + 1),
+                description="系统初始化示例数据 " + str(idx + 1),
+                contact_name=demo_resident.real_name or "居民用户",
+                contact_phone=demo_resident.phone,
+                service_address="邻里小区 " + str(idx + 1) + " 栋",
+                status=status,
+                urgency_level="normal" if idx % 3 else "high",
+                created_at=created_at,
+                updated_at=created_at,
+            )
+            if status == OrderStatusEnum.COMPLETED:
+                order.completed_at = created_at + timedelta(hours=3)
+                order.service_result = "服务已完成"
+            db.add(order)
+        db.commit()
 finally:
     db.close()
 print("DB_INIT_OK")
@@ -182,7 +280,42 @@ RestartSec=5
 WantedBy=multi-user.target
 SVCEOF
 
-        cat > /etc/nginx/sites-available/neighbor << NGINXEOF
+        if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+          cat > /etc/nginx/sites-available/neighbor << NGINXEOF
+server {{
+    listen 80;
+    server_name $DOMAIN;
+    return 301 https://$host$request_uri;
+}}
+
+server {{
+    listen 443 ssl http2;
+    server_name $DOMAIN;
+    client_max_body_size 20M;
+
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    location / {{
+        root $APP_DIR/web;
+        try_files \\$uri \\$uri/ /index.html;
+    }}
+
+    location /api/ {{
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host \\$host;
+        proxy_set_header X-Real-IP \\$remote_addr;
+        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\$scheme;
+    }}
+}}
+NGINXEOF
+        else
+          cat > /etc/nginx/sites-available/neighbor << NGINXEOF
 server {{
     listen 80;
     server_name $DOMAIN;
@@ -202,6 +335,7 @@ server {{
     }}
 }}
 NGINXEOF
+        fi
 
         ln -sf /etc/nginx/sites-available/neighbor /etc/nginx/sites-enabled/neighbor
         rm -f /etc/nginx/sites-enabled/default

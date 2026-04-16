@@ -1,6 +1,5 @@
 """AI 代理路由"""
 
-import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -10,8 +9,9 @@ from app.models.user import UserAccount, RoleEnum
 from app.models.order import ServiceOrder
 from app.models.ai_log import AiReviewLog, AiTaskTypeEnum, AiTaskStatusEnum
 from app.schemas.ai import AiTaskRequest, AiReviewResponse, AiTaskResponse
-from app.services.dependencies import get_current_user, require_role
+from app.services.dependencies import get_current_user, require_role, is_super_admin
 from app.services.ai_service import AIService
+from app.config import settings
 
 router = APIRouter(prefix="/ai", tags=["AI 智能辅助"])
 ai_service = AIService()
@@ -45,7 +45,7 @@ def trigger_review(
         order_id=request.order_id,
         task_type=request.task_type,
         status=AiTaskStatusEnum.PROCESSING,
-        model_name=AIService.MODEL_REVIEW,
+        model_name=settings.QWEN_MODEL_REVIEW,
         request_prompt=prompt,
     )
     db.add(ai_log)
@@ -83,6 +83,8 @@ def trigger_review(
 
     return AiTaskResponse(
         task_id=ai_log.id,
+        order_id=ai_log.order_id,
+        order_no=order.order_no,
         task_type=ai_log.task_type,
         status=ai_log.status,
         model_name=ai_log.model_name,
@@ -93,12 +95,12 @@ def trigger_review(
 
 @router.get("/review/{task_id}", response_model=AiReviewResponse)
 def get_review_result(
-    task_id: uuid.UUID,
+    task_id: str,
     db: Session = Depends(get_db),
     current_user: UserAccount = Depends(get_current_user),
 ):
     """获取 AI 审核结果"""
-    ai_log = db.query(AiReviewLog).filter(AiReviewLog.id == task_id).first()
+    ai_log = db.query(AiReviewLog).filter(AiReviewLog.id == str(task_id)).first()
     if not ai_log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI 任务不存在")
 
@@ -119,3 +121,50 @@ def get_review_result(
         summary=ai_log.summary,
         confidence=ai_log.confidence / 100 if ai_log.confidence else None,
     )
+
+
+@router.get("/tasks", response_model=list[AiTaskResponse])
+def list_ai_tasks(
+    status_filter: AiTaskStatusEnum | None = None,
+    task_type: AiTaskTypeEnum | None = None,
+    db: Session = Depends(get_db),
+    current_user: UserAccount = Depends(get_current_user),
+):
+    """获取 AI 任务列表"""
+    query = db.query(AiReviewLog)
+    if status_filter:
+        query = query.filter(AiReviewLog.status == status_filter)
+    if task_type:
+        query = query.filter(AiReviewLog.task_type == task_type)
+
+    if current_user.role == RoleEnum.RESIDENT:
+        query = query.join(ServiceOrder, ServiceOrder.id == AiReviewLog.order_id).filter(
+            ServiceOrder.creator_id == current_user.id
+        )
+    elif current_user.role == RoleEnum.WORKER:
+        query = query.join(ServiceOrder, ServiceOrder.id == AiReviewLog.order_id).filter(
+            ServiceOrder.assigned_worker_id == current_user.id
+        )
+    elif current_user.role in (RoleEnum.STATION_MANAGER, RoleEnum.DISPATCHER, RoleEnum.OPERATOR):
+        query = query.join(ServiceOrder, ServiceOrder.id == AiReviewLog.order_id).filter(
+            ServiceOrder.station_id == current_user.station_id
+        )
+    elif current_user.role == RoleEnum.ADMIN and not is_super_admin(current_user):
+        query = query.join(ServiceOrder, ServiceOrder.id == AiReviewLog.order_id).filter(
+            ServiceOrder.station_id == current_user.station_id
+        )
+
+    logs = query.order_by(AiReviewLog.created_at.desc()).limit(200).all()
+    return [
+        AiTaskResponse(
+            task_id=log.id,
+            order_id=log.order_id,
+            order_no=log.order.order_no if log.order else None,
+            task_type=log.task_type,
+            status=log.status,
+            model_name=log.model_name,
+            created_at=log.created_at,
+            completed_at=log.completed_at,
+        )
+        for log in logs
+    ]

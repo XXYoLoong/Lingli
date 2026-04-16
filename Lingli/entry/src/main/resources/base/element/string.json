@@ -11,6 +11,18 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "签到需要获取当前位置用于到场校验"
+    },
+    {
+      "name": "camera_permission_reason",
+      "value": "扫码签到需要访问相机"
+    },
+    {
+      "name": "detect_gesture_reason",
+      "value": "用于智感握姿，根据左右手握持调整快捷按钮位置"
     }
   ]
 }

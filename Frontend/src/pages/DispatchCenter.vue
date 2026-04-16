@@ -13,7 +13,7 @@
           <el-input v-model="queryParams.order_no" placeholder="输入工单号搜索" clearable />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="全部" clearable>
+          <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="待派单" value="pending_dispatch" />
             <el-option label="待接单" value="pending_accept" />
             <el-option label="已接单" value="accepted" />
@@ -25,7 +25,11 @@
       </el-form>
 
       <el-table :data="dispatchList" v-loading="loading" stripe>
-        <el-table-column prop="order_no" label="工单号" width="170" />
+        <el-table-column prop="order_no" label="工单号" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="order-no-cell">{{ row.order_no }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="标题" show-overflow-tooltip />
         <el-table-column prop="service_type" label="类型" width="80" />
         <el-table-column prop="urgency_level" label="紧急度" width="80">
@@ -201,6 +205,15 @@ onMounted(() => loadDispatchList())
 
 <style scoped lang="scss">
 .dispatch-center {
+  .order-no-cell {
+    display: inline-block;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+
   .card-header {
     display: flex;
     justify-content: space-between;

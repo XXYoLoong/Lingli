@@ -14,12 +14,6 @@ logger = logging.getLogger(__name__)
 class AIService:
     """Qwen API 封装服务"""
 
-    MODEL_DEFAULT = "qwen-plus"
-    MODEL_REVIEW = "qwen-plus"
-    MODEL_SUMMARY = "qwen-flash"
-    MODEL_CLASSIFY = "qwen-flash"
-    MODEL_ANALYSIS = "qwen-plus"
-
     def __init__(self):
         self.api_key = settings.DASHSCOPE_API_KEY
         self.base_url = settings.QWEN_BASE_URL
@@ -66,13 +60,13 @@ class AIService:
         if not self.api_key:
             raise RuntimeError("DASHSCOPE_API_KEY 未配置")
 
-        model = self.MODEL_DEFAULT
+        model = settings.QWEN_MODEL_DEFAULT
         if task_type == "review":
-            model = self.MODEL_REVIEW
+            model = settings.QWEN_MODEL_REVIEW
         elif task_type == "summary":
-            model = self.MODEL_SUMMARY
+            model = settings.QWEN_MODEL_SUMMARY
         elif task_type == "classify":
-            model = self.MODEL_CLASSIFY
+            model = settings.QWEN_MODEL_REVIEW
 
         messages = [
             {"role": "system", "content": "你是一个专业的社区服务系统AI助手，请提供准确、实用的分析和建议。"},

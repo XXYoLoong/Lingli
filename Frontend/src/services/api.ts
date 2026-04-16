@@ -4,6 +4,9 @@
 import type {
   LoginRequest,
   RegisterRequest,
+  SendResetCodeRequest,
+  ResetPasswordRequest,
+  ChangePasswordRequest,
   TokenResponse,
   UserAccount,
   ServiceOrder,
@@ -14,7 +17,7 @@ import type {
   StationStats,
   AiReviewResult,
   AiTaskRequest,
-  PaginatedResponse,
+  AiTaskItem,
 } from '@/types'
 import { get, post, patch, del } from './http'
 
@@ -22,6 +25,9 @@ import { get, post, patch, del } from './http'
 export const authApi = {
   login: (data: LoginRequest) => post<TokenResponse>('/auth/login', data),
   register: (data: RegisterRequest) => post<UserAccount>('/auth/register', data),
+  sendResetCode: (data: SendResetCodeRequest) => post<{ message: string }>('/auth/password/send-code', data),
+  resetPassword: (data: ResetPasswordRequest) => post<{ message: string }>('/auth/password/reset', data),
+  changePassword: (data: ChangePasswordRequest) => post<{ message: string }>('/auth/password/change', data),
   getMe: () => get<UserAccount>('/auth/me'),
 }
 
@@ -85,4 +91,25 @@ export const stationApi = {
 export const aiApi = {
   review: (data: AiTaskRequest) => post<Record<string, string>>('/ai/review', data),
   getResult: (taskId: string) => get<AiReviewResult>(`/ai/review/${taskId}`),
+  listTasks: (params?: Record<string, string>) => get<AiTaskItem[]>('/ai/tasks', { params }),
+}
+
+// 用户管理（仅超级管理员）
+export const userApi = {
+  list: (params?: Record<string, string>) => get<UserAccount[]>('/users', { params }),
+  create: (data: RegisterRequest & { role: UserAccount['role'] }) => post<UserAccount>('/users', data),
+  update: (id: string, data: { real_name?: string; role: UserAccount['role']; email?: string }) =>
+    patch<UserAccount>(`/users/${id}`, data),
+  updateStatus: (id: string, is_active: boolean) =>
+    patch<UserAccount>(`/users/${id}/status`, { is_active }),
+  resetPassword: (id: string, new_password: string) =>
+    patch<{ message: string }>(`/users/${id}/password`, { new_password }),
+  updateMyEmail: (email: string) =>
+    patch<UserAccount>('/users/me/email', { email }),
+  sendMyEmailCode: (email: string) =>
+    post<{ message: string }>('/users/me/email/send-code', { email }),
+  verifyMyEmail: (email: string, code: string) =>
+    post<UserAccount>('/users/me/email/verify', { email, code }),
+  updateEmail: (id: string, email: string) =>
+    patch<UserAccount>(`/users/${id}/email`, { email }),
 }

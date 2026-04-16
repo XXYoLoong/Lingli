@@ -32,6 +32,9 @@ export struct WorkerHomePage {
         Text('消息')
           .fontSize(16)
           .fontColor('#666')
+          .onClick(() => {
+            AppStorage.setOrCreate('activeTab', 2)
+          })
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 20, bottom: 10 })
@@ -50,10 +53,16 @@ export struct WorkerHomePage {
           .fontColor('#999')
           .margin({ top: 40 })
       } else if (this.getFilteredTasks().length === 0) {
-        Text('暂无任务')
-          .fontSize(14)
-          .fontColor('#ccc')
-          .margin({ top: 40 })
+        Column() {
+          Text('暂无任务')
+            .fontSize(14)
+            .fontColor('#ccc')
+            .margin({ top: 40 })
+          Column()
+            .width('100%')
+            .height(110)
+        }
+        .width('100%')
       } else {
         List({ space: 12 }) {
           ForEach(this.getFilteredTasks(), (task: OrderItem) => {
@@ -61,6 +70,11 @@ export struct WorkerHomePage {
               this.TaskCard(task)
             }
           }, (task: OrderItem) => task.id)
+          ListItem() {
+            Column()
+              .width('100%')
+              .height(110)
+          }
         }
         .width('100%')
         .layoutWeight(1)
@@ -143,6 +157,9 @@ export struct WorkerHomePage {
           .fontSize(14)
           .backgroundColor('#1677ff')
           .borderRadius(8)
+          .onClick(() => {
+            this.openTaskAction(task, 'checkIn')
+          })
       } else if (task.status === 'in_service') {
         Button('填写结果')
           .width('100%')
@@ -150,6 +167,9 @@ export struct WorkerHomePage {
           .fontSize(14)
           .backgroundColor('#52c41a')
           .borderRadius(8)
+          .onClick(() => {
+            this.openTaskAction(task, 'result')
+          })
       }
     }
     .width('100%')
@@ -217,5 +237,16 @@ export struct WorkerHomePage {
     if (status === 'in_service') return '#e6f4ff'
     if (status === 'completed') return '#f6ffed'
     return '#f5f5f5'
+  }
+
+  private openTaskAction(task: OrderItem, mode: string): void {
+    AppStorage.setOrCreate('currentOrderId', task.id)
+    AppStorage.setOrCreate('currentOrderNo', task.order_no || '')
+    AppStorage.setOrCreate('currentOrderTitle', task.title || '')
+    AppStorage.setOrCreate('currentOrderAddress', task.service_address || '')
+    AppStorage.setOrCreate('currentOrderContactName', task.contact_name || '')
+    AppStorage.setOrCreate('currentOrderContactPhone', task.contact_phone || '')
+    AppStorage.setOrCreate('workerActionMode', mode)
+    AppStorage.setOrCreate('activeTab', 1)
   }
 }

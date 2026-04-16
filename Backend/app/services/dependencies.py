@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import UserAccount, RoleEnum
 from app.services.auth_service import decode_access_token
+from app.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -33,6 +34,15 @@ def require_role(*roles: RoleEnum):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user
     return _check
+
+
+def is_super_admin(user: UserAccount) -> bool:
+    """判断是否为超级管理员（仅小小游龙）"""
+    marker = settings.SUPER_ADMIN_NAME
+    return bool(
+        (user.username and user.username == marker)
+        or (user.real_name and user.real_name == marker)
+    )
 
 
 def get_optional_user(

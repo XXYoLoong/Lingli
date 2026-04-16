@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
+const ALL_ROLES = ['resident', 'worker', 'station_manager', 'operator', 'admin', 'dispatcher']
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -18,19 +20,19 @@ const routes: RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/pages/Dashboard.vue'),
-        meta: { title: '驾驶舱', roles: ['station_manager', 'operator', 'admin', 'dispatcher'] },
+        meta: { title: '仪表盘', roles: ALL_ROLES },
       },
       {
         path: 'orders',
         name: 'Orders',
         component: () => import('@/pages/OrderCenter.vue'),
-        meta: { title: '工单中心', roles: ['station_manager', 'operator', 'admin', 'dispatcher'] },
+        meta: { title: '工单中心', roles: ALL_ROLES },
       },
       {
         path: 'dispatch',
         name: 'Dispatch',
         component: () => import('@/pages/DispatchCenter.vue'),
-        meta: { title: '调度中心', roles: ['station_manager', 'admin', 'dispatcher'] },
+        meta: { title: '调度中心', roles: ['worker', 'station_manager', 'admin', 'dispatcher'] },
       },
       {
         path: 'ai-review',
@@ -42,13 +44,13 @@ const routes: RouteRecordRaw[] = [
         path: 'users',
         name: 'Users',
         component: () => import('@/pages/UserManagement.vue'),
-        meta: { title: '用户管理', roles: ['station_manager', 'admin'] },
+        meta: { title: '用户管理', roles: ['admin'], superOnly: true },
       },
       {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/pages/SystemSettings.vue'),
-        meta: { title: '系统设置', roles: ['admin'] },
+        meta: { title: '系统设置', roles: ['admin'], superOnly: true },
       },
     ],
   },
@@ -59,26 +61,37 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+function getHomeRouteByRole(): string {
+  return '/orders'
+}
+
+router.beforeEach(async (to) => {
   if (to.meta.public) {
-    next()
-    return
+    return true
   }
 
   const userStore = useUserStore()
   if (!userStore.token) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
-    return
+    return { name: 'Login', query: { redirect: to.fullPath } }
   }
 
-  // 角色权限检查
+  if (!userStore.user) {
+    try {
+      await userStore.fetchMe()
+    } catch {
+      return { name: 'Login', query: { redirect: to.fullPath } }
+    }
+  }
+
   const roles = to.meta.roles as string[] | undefined
-  if (roles && userStore.user?.role && !roles.includes(userStore.user.role)) {
-    next({ name: 'Dashboard' })
-    return
+  const currentRole = userStore.user?.role
+  if (roles && currentRole && !roles.includes(currentRole)) {
+    return getHomeRouteByRole()
   }
-
-  next()
+  if (to.meta.superOnly && !userStore.isSuperAdmin()) {
+    return '/orders'
+  }
+  return true
 })
 
 export default router
