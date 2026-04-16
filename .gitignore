@@ -11,3 +11,6 @@ temp_web_doc.txt
 # Python cache
 **/__pycache__/
 **/*.pyc
+
+# Local browser automation cache
+.playwright-cli/
